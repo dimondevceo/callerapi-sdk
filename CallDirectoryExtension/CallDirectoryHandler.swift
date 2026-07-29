@@ -1,5 +1,9 @@
 import CallKit
 import os.log
+// Required when the extension target links CallerAPI as a package. The Flutter and
+// React Native templates omit it because their setup script compiles the SDK
+// sources into the extension target itself.
+import CallerAPI
 
 class CallDirectoryHandler: CXCallDirectoryProvider, CXCallDirectoryExtensionContextDelegate {
 

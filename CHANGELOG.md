@@ -12,6 +12,52 @@ enforced across every platform (and the server's advertised
 `LCID_LATEST_SDK_VERSION`) by `sdk/scripts/check-sdk-versions.sh`. A release
 publishes all four platforms from a single `sdk-v<version>` tag.
 
+## [1.4.0]
+
+Lookups did not work on iOS. The published pod carries no credentials, by design,
+and the Swift API had no way to supply them, so every `lookupLabel` failed
+authentication. This release adds the credential API that Android always had.
+
+Upgrading is a version bump plus two lines telling the SDK who you are. See
+`UPGRADING.md`.
+
+### Added
+
+- **iOS**: `CallerAPI.configure(_:)` taking a `CallerAPIConfig`, the counterpart of
+  Android's `CallerAPIConfig`. Supply `sdkKey` and `sdkSecret` from the dashboard.
+- **iOS**: credentials are also read from the app's Info.plist, from
+  `CallerAPISDKKey` and `CallerAPISDKSecret`. This mirrors the Android manifest
+  meta-data, and is what makes lookups work through Flutter and React Native. Those
+  bridges call the lookup methods directly and have nowhere to pass a credential.
+- **iOS**: `CallerAPI.CallDirectory.hasBlocklistBlob()`, to tell "the host app has
+  not synced yet" from a real failure. The Call Directory template already called
+  it. Cancelling the request instead makes iOS treat the extension as broken.
+- **iOS**: the bundle identifier is now reported when the SDK authenticates, so the
+  server can refuse a credential presented by an app it was not issued to. Android
+  has always reported its package name and signing digest.
+
+### Fixed
+
+- **iOS**: the Call Directory extension template did not compile. It was missing
+  `import CallerAPI` and called the `hasBlocklistBlob()` above, which did not exist.
+  This was the first file a customer builds on that path.
+- **iOS**: the Live Caller ID extension template under `ExtensionTemplates/` was
+  missing `import CallerAPILiveCallerID`. The copy published in the mirror was
+  already correct, so no released package was affected.
+- **Dashboard**: every "start it" snippet on the SDK setup page called a function
+  that does not exist, on all four platforms: `CallerAPI.init` on Android,
+  `CallerAPILiveCallerID.configure(clientKey:)` on iOS, and an `initialize` on
+  Flutter and React Native. They now show the real API.
+
+### Internal
+
+- `sdk/scripts/check-extension-templates.sh` type-checks every shipped iOS
+  extension template in CI. `Package.swift` compiles `Sources/` only, so nothing
+  ever compiled the files customers copy into their own projects.
+- A public-surface test pins the Live Caller ID host API with a plain, non-testable
+  import, so a symbol the integration guide tells customers to call cannot quietly
+  become unreachable from outside the module.
+
 ## [1.3.1]
 
 The 1.3.0 React Native and Flutter packages still expected to find the native SDK

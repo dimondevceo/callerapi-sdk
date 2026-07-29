@@ -12,6 +12,38 @@ Downloading a package does not grant a licence to use it: the SDK authenticates
 to the CallerAPI service with the credentials issued under your subscription. See
 `LICENSE`.
 
+## Upgrading to 1.4.0 from 1.3.x: iOS needs your credentials
+
+Android reads its credentials from manifest `meta-data`, and always has. iOS had no
+equivalent, so lookups through the published pod could not authenticate at all. They
+failed with `CallerAPIError` code `-2`.
+
+1.4.0 adds the missing path. Do one of the two, once, before your first lookup.
+
+In code:
+
+```swift
+import CallerAPI
+
+CallerAPI.configure(CallerAPIConfig(
+    sdkKey: "<from the dashboard>",
+    sdkSecret: "<from the dashboard>"
+))
+```
+
+Or in your app's Info.plist, which is also where the Flutter and React Native bridges
+read them from:
+
+```xml
+<key>CallerAPISDKKey</key>
+<string>...</string>
+<key>CallerAPISDKSecret</key>
+<string>...</string>
+```
+
+Nothing else changed. The existing `configure(featureEnabled:)` still compiles, and
+still works on a per-customer build with credentials compiled in.
+
 ## Android
 
 ```kotlin

@@ -125,6 +125,20 @@ public extension CallerAPI {
 
         // MARK: - Extension
 
+        /// Whether a downloaded blocklist is on disk yet.
+        ///
+        /// Check this before ``load(into:)``. Until the host app has completed its
+        /// first ``sync()`` there is no blob, and that is normal rather than an
+        /// error. Reporting it as one through `cancelRequest(withError:)` makes iOS
+        /// treat the extension as broken and stop asking it to reload.
+        ///
+        /// Throws only when the extension cannot tell, for example when the App
+        /// Group is missing from its entitlements.
+        public static func hasBlocklistBlob() throws -> Bool {
+            let url = try blobURL(try currentConfig())
+            return FileManager.default.fileExists(atPath: url.path)
+        }
+
         /// Decrypt the on-disk blob and add every number as a CallKit blocking
         /// entry. Call from the extension's `beginRequest(with:)`. Offline: no
         /// network or session is used, so it is safe in the constrained

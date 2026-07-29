@@ -16,7 +16,7 @@
 # mirror (see sdk/scripts/build-ios-mirror.sh), which is where this file lands.
 Pod::Spec.new do |s|
   s.name         = 'CallerAPI'
-  s.version      = '1.3.1'
+  s.version      = '1.4.0'
   s.summary      = 'Privacy-preserving spam detection and caller labels for iOS.'
   s.description  = <<~DESC
     Caller identification and spam detection with a k-anonymity lookup protocol:
