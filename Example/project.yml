@@ -1,0 +1,56 @@
+name: CallerAPIDemo
+
+options:
+  bundleIdPrefix: com.callerapi.demo
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+
+packages:
+  CallerAPILiveCallerID:
+    # The SDK package lives one directory up (sdk/ios-lcid/Package.swift).
+    path: ../
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    # Free "Personal Team" signing works for cabled-device runs; the simulator
+    # build in build_and_test.sh disables signing entirely.
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  CallerAPIDemo:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - CallerAPIDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.callerapi.demo
+        GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
+    dependencies:
+      - package: CallerAPILiveCallerID
+        product: CallerAPILiveCallerID
+      - target: LiveLookupExtension
+        embed: true
+
+  LiveLookupExtension:
+    type: extensionkit-extension
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - LookupExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.callerapi.demo.LiveLookupExtension
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: LookupExtension/Info.plist
+    dependencies:
+      - package: CallerAPILiveCallerID
+        product: CallerAPILiveCallerID

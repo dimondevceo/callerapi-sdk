@@ -1,0 +1,4 @@
+module CallerAPICCore {
+    header "callerapi.h"
+    export *
+}

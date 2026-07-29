@@ -1,0 +1,9 @@
+# XcodeGen output (regenerate with `xcodegen generate`)
+CallerAPIDemo.xcodeproj/
+
+# Xcode / SwiftPM build artifacts
+DerivedData/
+build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/

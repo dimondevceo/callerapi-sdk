@@ -1,0 +1,117 @@
+CallerAPI SDK - Commercial License Agreement
+============================================
+
+Copyright (c) CallerAPI. All rights reserved.
+
+
+1. DEFINITIONS
+
+   "SDK" means the CallerAPI software development kits published by CallerAPI,
+   in any distributed form, including the iOS (Swift) package, the Android
+   (Kotlin and native) library, the Flutter plugin, the React Native module,
+   and their accompanying source code, binaries, templates, example projects,
+   and documentation.
+
+   "Service" means the CallerAPI backend (caller identification and spam-
+   blocking data served via Private Information Retrieval and k-anonymous
+   lookup at api.callerapi.com, pir.callerapi.com, pat.callerapi.com, or
+   successor endpoints) that the SDK connects to.
+
+   "Licensee" means the company or individual that has entered into a paid
+   subscription agreement with CallerAPI to use the SDK and Service.
+
+   "Application" means a Licensee's iOS or Android application that embeds the
+   SDK.
+
+   "Subscriber" means an end user of an Application for whom the Service
+   performs lookups, as metered for billing under the subscription agreement.
+
+2. GRANT OF LICENSE
+
+   Subject to Licensee's compliance with this Agreement and payment of all fees
+   under an active subscription (billed per Subscriber per month, or as
+   otherwise agreed in an order form), CallerAPI grants Licensee a non-
+   exclusive, non-transferable, non-sublicensable, revocable license to:
+
+   (a) incorporate the SDK into Licensee's own Applications; and
+   (b) distribute the SDK only as compiled into those Applications via the
+       Apple App Store, Google Play, or other channels approved in writing by
+       CallerAPI.
+
+   Downloading the SDK from a public package registry (Maven Central, CocoaPods,
+   npm, pub.dev, or a source repository) does not by itself grant any right to
+   use the SDK or the Service. Use requires an active subscription and the
+   credentials issued with it.
+
+3. RESTRICTIONS
+
+   Licensee shall NOT, and shall not permit any third party to:
+
+   (a) use the SDK or Service without an active, paid subscription;
+   (b) redistribute, sublicense, sell, rent, lease, or lend the SDK in source
+       or standalone binary form, or as part of any software development kit,
+       library, or competing product;
+   (c) reverse engineer, decompile, or disassemble any non-source component of
+       the SDK or Service, except to the extent this restriction is prohibited
+       by applicable law;
+   (d) remove or alter any proprietary notices;
+   (e) point the SDK at the Service from an application or environment not
+       covered by Licensee's subscription, share or embed credentials issued to
+       Licensee in any other product, or otherwise circumvent metering;
+   (f) use the SDK or Service to build a competing caller-ID or call-blocking
+       data service.
+
+4. OWNERSHIP
+
+   The SDK and Service, and all intellectual property rights therein, are and
+   remain the exclusive property of CallerAPI. This Agreement grants a license,
+   not a sale. No rights are granted except as expressly stated herein.
+
+5. DATA AND PRIVACY
+
+   On iOS, the Live Caller ID Lookup protocol is executed by the operating
+   system using Oblivious HTTP, Privacy Pass, and homomorphic-encryption-based
+   Private Information Retrieval. On Android, lookups use k-anonymous bucket
+   retrieval. In both cases CallerAPI does not learn which phone number a device
+   looks up. Licensee is responsible for its own Application's privacy
+   disclosures, App Store and Google Play privacy labels, and compliance with
+   applicable law in its markets.
+
+6. FEES
+
+   Use of the SDK and Service requires a paid subscription billed per Subscriber
+   per month (or as set out in an order form). CallerAPI may suspend Service
+   access for any Application whose account is past due or in breach.
+
+7. WARRANTY DISCLAIMER
+
+   THE SDK AND SERVICE ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+   CallerAPI does not warrant uninterrupted or error-free operation, nor that
+   the Apple Live Caller ID Lookup subsystem, the Apple relay, or Android call
+   screening will be available.
+
+8. LIMITATION OF LIABILITY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, CALLERAPI SHALL NOT BE LIABLE FOR ANY
+   INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY
+   LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY.
+   CALLERAPI'S TOTAL LIABILITY UNDER THIS AGREEMENT SHALL NOT EXCEED THE FEES
+   PAID BY LICENSEE IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.
+
+9. TERMINATION
+
+   This Agreement terminates automatically if Licensee breaches it or ceases to
+   maintain an active subscription. On termination, Licensee must stop using the
+   SDK and Service and remove the SDK from Applications in its next release.
+   Sections 3, 4, 7, 8, and 10 survive termination.
+
+10. GENERAL
+
+   This Agreement is governed by the laws of Switzerland, without regard to
+   conflict-of-laws rules. If any provision is held unenforceable, the remainder
+   stays in effect. This Agreement, together with any executed order form, is
+   the entire agreement between the parties regarding the SDK and Service.
+
+For licensing inquiries: support@callerapi.com

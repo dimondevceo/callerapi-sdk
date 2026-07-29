@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  OPTIONAL. Only required if the host app pushes a per-user tier token (or
+	  staging URLs) to this extension at runtime. The App Group must be declared
+	  with the SAME identifier in the host app's entitlements, and registered on
+	  your Apple Developer account. Remove this block for the zero-config
+	  production default.
+	-->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.yourco.app</string>
+	</array>
+</dict>
+</plist>

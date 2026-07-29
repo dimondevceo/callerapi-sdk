@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Privacy manifest for CallerAPILiveCallerID.
+
+      The Live Caller ID Lookup query itself is run by iOS (Oblivious HTTP +
+      Privacy Pass + keyword PIR), which hides the looked-up number from the
+      CallerAPI backend - that path collects nothing.
+
+      Separately, the optional metering/version-check heartbeat (Metering.swift,
+      host app only) collects a Device ID (identifierForVendor) to count active
+      devices per app for billing and to report the SDK version. It is NOT used
+      for tracking (no linking across apps/developers, no advertising), so
+      NSPrivacyTracking remains false. If your app does not call
+      configureMetering(...), no Device ID is collected - remove the Device ID
+      entry below in that case.
+
+      Device attestation (AppAttest.swift) uses Apple's App Attest to prove the
+      request comes from a genuine, unmodified build of this app. The key is
+      generated in the Secure Enclave and never leaves it; nothing about the
+      device or the user is collected, and DeviceCheck is not a required-reason
+      API, so no additional declaration is needed for it.
+
+      Required-reason APIs: UserDefaults, used to read/write the App Group
+      container that shares the per-user tier token between the host app and the
+      extension, to cache the metering fallback id, and to remember this app's own
+      App Attest key identifier. All are this app's own data, so reason CA92.1.
+    -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeDeviceID</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+    </array>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
