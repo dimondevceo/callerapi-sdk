@@ -1,4 +1,5 @@
 import Foundation
+import os.log
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -35,6 +36,9 @@ public final class CallerAPI: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "com.callerapi.sdk", qos: .userInitiated)
     private var initialised = false
+    private var initFailureLogged = false
+    // os_log rather than Logger: Logger is iOS 14+, and this package supports older.
+    private let log = OSLog(subsystem: "com.callerapi.sdk", category: "CallerAPI")
 
     private init() {}
 
@@ -64,7 +68,7 @@ public final class CallerAPI: @unchecked Sendable {
         // report the bundle id. iOS has no analogue of the Android signing digest.
         let bundleID = Bundle.main.bundleIdentifier ?? ""
 
-        initialised = dir.withCString { dirPtr in
+        let rc = dir.withCString { dirPtr in
             apiBase.withCString { apiBasePtr in
                 sdkKey.withCString { sdkKeyPtr in
                     sdkSecret.withCString { sdkSecretPtr in
@@ -77,10 +81,31 @@ public final class CallerAPI: @unchecked Sendable {
                             cfg.package_name = bundleIDPtr
                             cfg.lookup_timeout_ms = config.lookupTimeoutMs
                             cfg.network_timeout_ms = config.networkTimeoutMs
-                            return callerapi_init_ex(&cfg) == 0
+                            return callerapi_init_ex(&cfg)
                         }
                     }
                 }
+            }
+        }
+        initialised = rc == 0
+
+        // Say why. A missing credential pair otherwise produces an SDK that answers
+        // every lookup with "not spam" and reports nothing: the one failure a
+        // customer causes themselves is the one that looks like success.
+        //
+        // Once, not per lookup. A failed init leaves `initialised` false, so every
+        // later lookup retries it, and an SDK that writes the same line into a
+        // customer's console a hundred times has taught them to filter it out.
+        if rc != 0 && !initFailureLogged {
+            initFailureLogged = true
+            if rc == -10 {
+                os_log("""
+                    CallerAPI has no credentials, so every lookup will report "not spam". \
+                    Pass CallerAPIConfig(sdkKey:sdkSecret:) to configure, or set \
+                    CallerAPISDKKey and CallerAPISDKSecret in the host Info.plist.
+                    """, log: log, type: .error)
+            } else {
+                os_log("CallerAPI init failed with code %{public}d", log: log, type: .error, rc)
             }
         }
     }
@@ -109,9 +134,10 @@ public final class CallerAPI: @unchecked Sendable {
     /// Configure metering for MAU/billing: reports the stable per-vendor device
     /// id (IDFV) and whether the spam feature is enabled. Call once at launch.
     ///
-    /// Use this only on a per-customer build with credentials compiled in. On
-    /// anything installed from SwiftPM or CocoaPods, call
-    /// ``configure(_:featureEnabled:)`` instead and pass your credentials.
+    /// Takes the credentials from the host `Info.plist` (`CallerAPISDKKey` and
+    /// `CallerAPISDKSecret`), or from the build if they are compiled in. Use
+    /// ``configure(_:featureEnabled:)`` to pass them in code instead. One of the two
+    /// is required: with neither, init fails and every lookup reports "not spam".
     public static func configure(featureEnabled: Bool = true) {
         shared.queue.sync { shared.ensureInitialisedLocked() }
         setMetering(featureEnabled: featureEnabled)
@@ -264,6 +290,9 @@ public struct CallerAPIError: LocalizedError, Sendable {
         case -6: return "CallerAPI: I/O error"
         case -7: return "CallerAPI: session expired"
         case -8: return "CallerAPI: not found"
+        case -9: return "CallerAPI: busy, answer unknown"
+        case -10: return "CallerAPI: no credentials — set CallerAPISDKKey and "
+            + "CallerAPISDKSecret in Info.plist, or pass CallerAPIConfig to configure"
         default: return "CallerAPI: unknown error (\(code))"
         }
     }

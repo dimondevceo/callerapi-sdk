@@ -27,6 +27,12 @@ extern "C" {
    call-path entry points, which refuse to wait rather than delay a ringing
    phone. Treat exactly like CALLERAPI_ERR_NOTFOUND: the answer is unknown. */
 #define CALLERAPI_ERR_BUSY     -9
+/* No usable credential pair: none was passed to callerapi_init_ex and none is
+   compiled in. Returned by init rather than left for the first lookup to trip
+   over, because the failure is otherwise indistinguishable from a clean number:
+   every lookup returns "unknown", nothing is ever blocked, and the integration
+   looks like it works. Supply sdk_key and sdk_secret from the dashboard. */
+#define CALLERAPI_ERR_NOCREDS  -10
 
 /*
  * Runtime configuration (see callerapi_init_ex).

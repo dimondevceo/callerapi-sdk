@@ -34,10 +34,20 @@ Include **`CallDirectory.swift`** — required for the Call Directory extension 
 
 ## Step 3 — Initialize at launch
 
+Pass the credentials from your dashboard. The published package carries none, so
+a lookup made without them fails with code `-2`:
+
 ```swift
-CallerAPI.configure(featureEnabled: true)
+CallerAPI.configure(
+    CallerAPIConfig(sdkKey: "<your key>", sdkSecret: "<your secret>"),
+    featureEnabled: true)
 CallerAPI.BackgroundSync.register()
 ```
+
+You can put the pair in the host `Info.plist` as `CallerAPISDKKey` and
+`CallerAPISDKSecret` instead, which is what makes lookups work through Flutter and
+React Native. `configure(featureEnabled:)` with no config is for per-customer builds
+that have credentials compiled in; on SwiftPM or CocoaPods it cannot authenticate.
 
 ## Step 4 — Lookups
 
@@ -64,7 +74,7 @@ Enable in **Settings → Phone → Call Blocking & Identification**, then sync.
 
 ## Step 6 — Live Caller ID (required, iOS 18+)
 
-[`../ios-lcid/INTEGRATION.md`](../ios-lcid/INTEGRATION.md) — Live Lookup extension + bootstrap + client key.
+[`../ios-lcid/INTEGRATION.md`](LIVE-CALLER-ID.md) — Live Lookup extension + bootstrap + client key.
 
 ## Step 7 — Info.plist
 
@@ -72,7 +82,8 @@ See [`IOS-FULL-INTEGRATION.md`](IOS-FULL-INTEGRATION.md#step-4--host-infoplist-c
 
 ## React Native / Flutter
 
-Automated: `setup_callerapi_ios.sh` — [`../react-native/IOS-INTEGRATION.md`](../react-native/IOS-INTEGRATION.md) / [`../flutter/IOS-INTEGRATION.md`](../flutter/IOS-INTEGRATION.md).
+Automated by `setup_callerapi_ios.sh`. The guide ships inside each wrapper package as
+`IOS-INTEGRATION.md`: `@callerapi/react-native` on npm, `callerapi` on pub.dev.
 
 ---
 

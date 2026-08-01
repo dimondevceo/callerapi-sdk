@@ -2,7 +2,7 @@
 
 **Standard CallerAPI iOS = host + Call Directory + Live Lookup.** Paid Apple Developer Program required (Call Directory uses App Groups).
 
-RN/Flutter automated path: [`../react-native/IOS-INTEGRATION.md`](../react-native/IOS-INTEGRATION.md) Step 0.
+RN/Flutter automated path: `IOS-INTEGRATION.md` (ships in the `@callerapi/react-native` package) Step 0.
 
 ## TL;DR checklist
 
@@ -27,7 +27,7 @@ LCID-only sample in [`Example/`](Example/README.md) is for SDK development, not 
 
 ## 2. Extensions (ship both)
 
-1. **Call Directory** — offline blocklist, all iOS versions ([`../ios/CALL-DIRECTORY-XCODE.md`](../ios/CALL-DIRECTORY-XCODE.md))
+1. **Call Directory** — offline blocklist, all iOS versions ([`../ios/CALL-DIRECTORY-XCODE.md`](CALL-DIRECTORY-XCODE.md))
 2. **Live Caller ID Lookup** — iOS 18+ call screen (this package)
 
 Portal: enable **App Groups** + **Keychain Sharing** on host and Call Directory App IDs.

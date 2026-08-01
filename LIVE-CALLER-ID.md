@@ -1,12 +1,12 @@
 # CallerAPI — Live Caller ID Lookup (iOS 18+) Integration
 
 **Part of the full iOS stack** — ship alongside **Call Directory** (required).
-Native linear guide: [`../ios/IOS-FULL-INTEGRATION.md`](../ios/IOS-FULL-INTEGRATION.md).
+Native linear guide: [`../ios/IOS-FULL-INTEGRATION.md`](IOS-FULL-INTEGRATION.md).
 
 **Paid Apple Developer Program required** for the standard CallerAPI iOS stack (Call Directory uses App Groups). RN/Flutter automated path:
 
-- [`../react-native/IOS-INTEGRATION.md`](../react-native/IOS-INTEGRATION.md)
-- [`../flutter/IOS-INTEGRATION.md`](../flutter/IOS-INTEGRATION.md)
+- `IOS-INTEGRATION.md` (ships in the `@callerapi/react-native` package)
+- `IOS-INTEGRATION.md` (ships in the `callerapi` package on pub.dev)
 
 This package adds **Live Caller ID Lookup**: privacy-preserving, real-time caller
 ID and spam blocking on the incoming-call screen, backed by CallerAPI PIR at
@@ -73,7 +73,7 @@ Incoming call ─▶ iOS system ──Privacy Pass + OHTTP + PIR──▶ pir/pa
 - iOS 18.0+ (the feature does not exist before iOS 18)
 - Xcode 16+
 - **Paid Apple Developer Program** for the full CallerAPI iOS stack (Call Directory + LCID shipping together)
-- LCID-only local dev on a free Personal Team is possible in isolation, but **not** the supported integration path — see [`../react-native/IOS-INTEGRATION.md`](../react-native/IOS-INTEGRATION.md)
+- LCID-only local dev on a free Personal Team is possible in isolation, but **not** the supported integration path — see `IOS-INTEGRATION.md` (ships in the `@callerapi/react-native` package)
 
 ---
 
@@ -178,7 +178,7 @@ CallerAPILiveCallerID.bootstrap(.init(
 Add the heartbeat task id to the host app Info.plist (see Step 7). You do **not**
 need to call `refreshPIRParameters` manually on launch — bootstrap does it.
 
-> **React Native / Flutter:** see [`../react-native/IOS-INTEGRATION.md`](../react-native/IOS-INTEGRATION.md) — automated plist + bootstrap.
+> **React Native / Flutter:** see `IOS-INTEGRATION.md` (ships in the `@callerapi/react-native` package) — automated plist + bootstrap.
 
 ---
 
@@ -297,7 +297,7 @@ backend.
 
 ## Relationship to the rest of the CallerAPI SDK
 
-Ship **all three** on iOS: host lookups (`ios/Sources/`), **Call Directory** (`ios/CallDirectoryExtension/`), and this LCID package. Linear native guide: [`../ios/IOS-FULL-INTEGRATION.md`](../ios/IOS-FULL-INTEGRATION.md).
+Ship **all three** on iOS: host lookups (`ios/Sources/`), **Call Directory** (`ios/CallDirectoryExtension/`), and this LCID package. Linear native guide: [`../ios/IOS-FULL-INTEGRATION.md`](IOS-FULL-INTEGRATION.md).
 
 ---
 

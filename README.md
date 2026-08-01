@@ -23,7 +23,7 @@ Or in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dimondevceo/callerapi-sdk", from: "1.3.1"),
+    .package(url: "https://github.com/dimondevceo/callerapi-sdk", from: "1.5.1"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: [
@@ -36,8 +36,8 @@ targets: [
 ### CocoaPods
 
 ```ruby
-pod 'CallerAPI', '~> 1.3'
-pod 'CallerAPILiveCallerID', '~> 1.3'   # iOS 18+ Live Caller ID Lookup
+pod 'CallerAPI', '~> 1.5.1'
+pod 'CallerAPILiveCallerID', '~> 1.5.1'   # iOS 18+ Live Caller ID Lookup
 ```
 
 ### React Native and Flutter
@@ -62,6 +62,7 @@ email support@callerapi.com when you're ready.
 
 ## Guides
 
+- [IOS-FULL-INTEGRATION.md](IOS-FULL-INTEGRATION.md) — start here: host app, Call Directory, and Live Caller ID wired in order
 - [CORE-INTEGRATION.md](CORE-INTEGRATION.md) — setting up `CallerAPI`
 - [CALL-DIRECTORY-XCODE.md](CALL-DIRECTORY-XCODE.md) — the blocklist extension for iOS 13–17
 - [PREREQUISITES.md](PREREQUISITES.md) — what Apple needs to grant you before Live Caller ID works

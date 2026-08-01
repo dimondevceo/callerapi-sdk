@@ -145,7 +145,7 @@ public extension CallerAPI {
         /// Call Directory extension sandbox.
         public static func load(into context: CXCallDirectoryExtensionContext) throws {
             let c = try currentConfig()
-            let key = try deviceKey(c)
+            let key = try deviceKey(c, createIfMissing: false)
             let path = try blobURL(c).path
 
             // We always have the full current list, so do a full refresh.
@@ -192,7 +192,13 @@ public extension CallerAPI {
         /// Fetch (or, on first run, create) the 32-byte at-rest device key from
         /// the Keychain. Stored with `AfterFirstUnlock` so the extension can read
         /// it during an incoming call even when the host app is not running.
-        static func deviceKey(_ c: Config) throws -> [UInt8] {
+        ///
+        /// `createIfMissing` belongs to the host, which is the only side that has a
+        /// reason to mint one. Letting the extension create a key turns a keychain
+        /// access-group mismatch into a silent one: each side writes a key into its own
+        /// group, the extension decrypts the host's blob with a key that never
+        /// encrypted anything, and the only symptom is an empty block list.
+        static func deviceKey(_ c: Config, createIfMissing: Bool = true) throws -> [UInt8] {
             let service = "com.callerapi.calldir.devicekey"
             let account = "default"
 
@@ -213,6 +219,12 @@ public extension CallerAPI {
             }
             guard status == errSecItemNotFound else {
                 throw CallerAPIError(code: -6)   // keychain read failed
+            }
+            guard createIfMissing else {
+                // Either the host has not synced yet, or the two targets do not agree
+                // on keychainAccessGroup. Both are worth reporting; neither is worth
+                // papering over with a key that cannot decrypt the blob.
+                throw CallerAPIError(code: -6)
             }
 
             var key = [UInt8](repeating: 0, count: 32)

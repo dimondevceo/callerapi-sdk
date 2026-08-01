@@ -14,6 +14,73 @@ publishes all four platforms from a single `sdk-v<version>` tag.
 
 ## [Unreleased]
 
+## [1.5.1]
+
+Everything here comes from an external review of 1.5.0. Nothing in it changes what
+the SDK can do; it changes what the SDK tells you when it is not doing it.
+
+### Fixed
+
+- **An SDK with no credentials now says so, instead of reporting every caller as
+  clean.** `callerapi_init_ex` returned success with no credential pair, because
+  nothing needs one until the first lookup. That lookup then failed
+  authentication, `isSpam` reported the failure as `false`, and the result was an
+  integration that started cleanly, blocked nobody, and logged nothing. A
+  reviewer needed a decompiler to work out why.
+
+  Init now fails with `CALLERAPI_ERR_NOCREDS` (-10) when neither a runtime pair
+  nor a compiled-in one is available, and both platforms log what is missing and
+  where to put it. A lookup that fails for any other reason, a rejected
+  credential most likely, is logged once a minute rather than silently reported
+  as "not spam".
+
+  Nothing changes for an SDK that has credentials. If yours does not, it was
+  already answering "not spam" to every call and now tells you.
+
+- **iOS: the Call Directory extension no longer invents an at-rest key.** On a
+  keychain miss the extension minted a fresh key, which cannot decrypt a blob the
+  host encrypted, so a `keychainAccessGroup` mismatch surfaced as an empty block
+  list. Only the host creates the key now; the extension reads it, and reports a
+  miss.
+
+- **iOS: `CallerAPIError` describes -9 and -10** instead of falling through to
+  "unknown error".
+
+### Documentation
+
+- **The guide the iOS docs called canonical was never published.**
+  `IOS-FULL-INTEGRATION.md` is now in the package, along with the 14 internal
+  links across four documents that pointed at files customers never received.
+  `build-ios-mirror.sh` repoints links renamed on the way out and refuses to
+  publish a dangling one, so this cannot recur silently.
+
+- **The iOS quickstart told you to initialise without credentials.** Its
+  "complete" host `Info.plist` omitted `CallerAPISDKKey` and
+  `CallerAPISDKSecret` entirely, which is what produced the silent failure above
+  in the first place. Both are now in the plist example and in every launch
+  snippet. The doc comment on `configure(featureEnabled:)` claimed the overload
+  cannot authenticate under SwiftPM; it reads the plist, and now says so.
+
+- **The Call Directory guide put three `Info.plist` keys on the wrong target.**
+  `CallerAPIKeychainAccessGroup` is read by the extension, not the host.
+  `CallerAPIAppGroup` is Live Caller ID's, and
+  `CallerAPICallDirectoryExtensionBundleID` is only read by the Flutter and
+  React Native bootstraps; a native app sets both in `AppConfig.swift`. There is
+  a table now saying which key belongs where.
+
+- **Android: the first call from an unknown number is not blocked, and the guide
+  now says so** in its own section rather than in one KDoc comment. Screening
+  answers from cache because it cannot make the phone wait, so an uncached number
+  is allowed through and blocked from the second call on. Worth checking against
+  any marketing copy that says otherwise.
+
+- Android troubleshooting covers the case where every lookup returns `UNKNOWN`,
+  and no longer explains lookup code -2 as a native build problem when it usually
+  means the server rejected the credentials.
+
+- The published README's install snippets are generated from `VERSION`. They had
+  said 1.3.1 for three releases.
+
 ## [1.5.0]
 
 ### Added
