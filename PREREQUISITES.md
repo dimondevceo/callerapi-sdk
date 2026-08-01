@@ -38,7 +38,35 @@ Live Lookup extension: **empty** `.entitlements` for local Xcode-to-device dev; 
 
 Xcode-to-device dev builds talk to the service URLs (`pir.callerapi.com` / `pat.callerapi.com`) directly. TestFlight/App Store routes through Apple's Oblivious relay — enrollment required, registered on the [Identity & Trust](https://icloud.developer.apple.com/dashboard/identity) page of the CloudKit Console under **your** Apple team with **your extension bundle id**.
 
-Each partner gets a **dedicated set of hosts** so every Apple registration has its own service domain and its own DNS TXT proof: service URL `https://pir-<partner>.callerapi.com`, token issuer URL `https://pat-<partner>.callerapi.com`, OHTTP gateway URL `https://gateway-<partner>.callerapi.com` (e.g. `pir-eset.callerapi.com`). CallerAPI provisions these plus the gateway key-configuration resource, the validation bearer token, the Apple test identity (`+14085551212` → "Johnny Appleseed"), and the TXT record `apple-live-caller-id-lookup=<your extension bundle id>` on the service host. What you provide: the extension bundle identifier and per-continent traffic estimates. Configure the URLs in the app with `CallerAPILiveCallerID.setEndpoints(serviceURL:tokenIssuerURL:)` (or a partner build with baked defaults); the SDK's compiled-in defaults (`pir.callerapi.com` / `pat.callerapi.com`) are the shared single-tenant hosts.
+**Most customers share the default hosts and change no code.** The SDK already
+points at `pir.callerapi.com`, `pat.callerapi.com`, and `gateway.callerapi.com`.
+Apple matches your extension bundle identifier against a DNS TXT value on the
+service host, and one host carries one TXT value per enrolled extension. So
+sharing a host does not mean sharing an Apple registration.
+
+What you give CallerAPI: the extension bundle identifier, and per-continent
+traffic estimates. What CallerAPI gives you: the three URLs, the gateway
+key-configuration URL, the validation bearer token, the Apple test identity
+(`+14085551212` → "Johnny Appleseed"), and the TXT record
+`apple-live-caller-id-lookup=<your extension bundle id>` on the service host.
+
+A **dedicated host set** (`pir-<partner>`, `pat-<partner>`,
+`gateway-<partner>`) is optional. Ask for one if you need domain isolation, or
+if you want token issuance accounted separately from other customers. It needs
+no custom build of the SDK. Set two Info.plist keys on your app target:
+
+```xml
+<key>CallerAPILCIDServiceURL</key>
+<string>https://pir-eset.callerapi.com</string>
+<key>CallerAPILCIDTokenIssuerURL</key>
+<string>https://pat-eset.callerapi.com</string>
+```
+
+On Flutter and React Native, set `CALLERAPI_LCID_SERVICE_URL` and
+`CALLERAPI_LCID_TOKEN_ISSUER_URL` before `pod install` and the hook writes both
+keys for you. In Swift you can also call
+`CallerAPILiveCallerID.setEndpoints(serviceURL:tokenIssuerURL:)`, which
+overrides the Info.plist and suits a staging build.
 
 Apple requires all three URLs to be **bare subdomains** (HTTPS, port 443, no path, no trailing slash) — path-style URLs were dropped in iOS/macOS 26.4. The SDK defaults comply.
 

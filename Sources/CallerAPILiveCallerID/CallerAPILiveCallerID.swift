@@ -76,6 +76,26 @@ public enum CallerAPILiveCallerID {
         SharedStore.load(appGroup: appGroupIdentifier)
     }
 
+    /// Stores a server-issued tier token in the App Group. Returns true when the
+    /// stored value changed, so the caller knows whether to refresh the extension.
+    ///
+    /// The tier token identifies the customer to the Privacy Pass issuer, which is
+    /// what lets the issuer return a signing key of that customer's own and count
+    /// issuance against it. The heartbeat delivers it.
+    ///
+    /// Returns false without an App Group, and on an empty token. The extension
+    /// reads the token from the shared container, so with no container there is
+    /// nowhere to put it and the device keeps the bundled default. That undercounts
+    /// one customer's attribution rather than breaking call screening.
+    @discardableResult
+    static func adoptTierToken(_ token: String) -> Bool {
+        guard let appGroup = appGroupIdentifier, !token.isEmpty else { return false }
+        let data = Data(token.utf8)
+        guard SharedStore.load(appGroup: appGroup).userTierToken != data else { return false }
+        SharedStore.setUserTierToken(data, appGroup: appGroup)
+        return true
+    }
+
     // MARK: - Extension entry point
 
 #if os(iOS)

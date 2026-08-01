@@ -18,10 +18,20 @@ enum SharedStore {
     private static let tokenIssuerURLKey = "com.callerapi.lcid.tokenIssuerURL"
     private static let userTierTokenKey = "com.callerapi.lcid.userTierToken"
 
-    /// Reads the effective configuration for the given App Group, falling back
-    /// to compiled-in production defaults for any value that is absent.
+    /// Reads the effective configuration for the given App Group.
+    ///
+    /// Resolution order, highest first: an App Group override, an Info.plist
+    /// key, then the compiled-in shared defaults. The Info.plist layer lets a
+    /// customer on a dedicated host set configure it without a per-customer
+    /// build, which is what Flutter and React Native could not do before.
     static func load(appGroup: String?) -> CallerAPILiveCallerIDConfiguration {
         var config = CallerAPILiveCallerIDConfiguration.production
+
+        if let overrides = CallerAPILiveCallerIDConfiguration.endpointOverrides() {
+            if let url = overrides.serviceURL { config.serviceURL = url }
+            if let url = overrides.tokenIssuerURL { config.tokenIssuerURL = url }
+        }
+
         guard
             let appGroup,
             let defaults = UserDefaults(suiteName: appGroup)

@@ -132,6 +132,29 @@ CALLERAPI_EXPORT int callerapi_lookup_label(const char *phone,
                                             int         out_len);
 
 /*
+ * Perform an authenticated GET on `path` (relative to the configured API base)
+ * and return the response body.
+ *
+ * Exists so features that are pure JSON reads — the Business Caller ID assertion
+ * feed and logo pack — can live in the platform wrapper without reimplementing
+ * authentication. Session establishment is HMAC over an obfuscated credential
+ * pair; a second implementation of that in Kotlin and Swift would be two more
+ * places for it to drift, and drift in an auth protocol is a silent outage.
+ *
+ * Note that the path is supplied by the caller rather than obfuscated in here
+ * like the core endpoints. Endpoint paths are visible in traffic to anyone who
+ * can see it, so hiding them buys little; the obfuscation exists to slow down
+ * extraction of the credential pair, which this does not touch.
+ *
+ * On CALLERAPI_OK, *body_out is a NUL-terminated buffer the caller must free.
+ * Returns CALLERAPI_ERR_HTTP for any non-200, so a caller cannot mistake an
+ * error page for data.
+ */
+CALLERAPI_EXPORT int callerapi_authed_get(const char *path,
+                                         int         timeout_ms,
+                                         char      **body_out);
+
+/*
  * Configure metering fields sent on the next authentication (control-plane
  * check-in for MAU / billing). All arguments are optional:
  *   device_id        - stable per-vendor id (Android App Set ID / iOS IDFV).

@@ -12,6 +12,61 @@ enforced across every platform (and the server's advertised
 `LCID_LATEST_SDK_VERSION`) by `sdk/scripts/check-sdk-versions.sh`. A release
 publishes all four platforms from a single `sdk-v<version>` tag.
 
+## [Unreleased]
+
+## [1.5.0]
+
+### Added
+
+- **Android: verified Business Caller ID.** A registered business can now prove it
+  is the party placing a particular call, and only then does the incoming-call card
+  show a verification mark and the business's logo.
+
+  This is a claim about a call, not about a number, and that distinction is the
+  whole feature. A spoofer presenting a customer's calling number gets the same
+  answer from any number-keyed lookup as the real owner does, so the k-anon index
+  now carries a business's plain name and nothing else. The mark and the logo
+  travel only inside a short-lived assertion the business publishes as it dials,
+  signed ES256 by the server and verified on the device against keys from
+  `/api/sdk/v1/config`. There is no logo id in a bucket for any client to draw
+  without checking a signature.
+
+  The device also checks the assertion was issued for the call it is receiving, not
+  merely that the business is dialling somebody, which is what stops a spoofer
+  riding a real assertion by calling a different person in the same window. That
+  check needs this handset's own number; where it is unavailable, verification is
+  withheld. `CallerAPI.setRequireCalleeBinding(false)` relaxes it and accepts the
+  weaker guarantee.
+
+  Verification cannot block a call and does not try to. Screening runs on the main
+  thread and the phone does not ring until it returns, so the assertion fetch
+  happens after the verdict — it decorates a call, it never decides one.
+
+- Logos are cached on disk by content id and fetched as a whole pack rather than
+  per caller, because a request for one caller's logo would give away what the
+  k-anon bucket exists to hide. Bounded to 64 MB, and every file is checked
+  against its own content id before use.
+
+- **iOS: Live Caller ID endpoints read from Info.plist.** A customer whose Apple
+  registration uses a dedicated host set can set `CallerAPILCIDServiceURL` and
+  `CallerAPILCIDTokenIssuerURL` instead of calling `setEndpoints`. The Swift call
+  still works and still wins, so staging can override a shipped configuration.
+  Only `https` URLs are accepted, and surrounding whitespace is trimmed.
+- **Flutter and React Native reach the same setting through the environment.**
+  The podspec hook writes both keys from `CALLERAPI_LCID_SERVICE_URL` and
+  `CALLERAPI_LCID_TOKEN_ISSUER_URL`. Neither wrapper exposed `setEndpoints` in
+  Dart or TypeScript, so a dedicated-host customer on Flutter or React Native
+  previously needed a per-customer build of the SDK. No build differs per
+  customer now.
+- `bootstrap` copies a host Info.plist override into the App Group, so the
+  extension reads it without a copy of its own.
+- **iOS: the heartbeat installs a tier token, so Live Caller ID issuance is
+  attributed to your account.** The server returns `lcid_tier_token`, the SDK
+  stores it in the App Group, and the extension presents it to the Privacy Pass
+  issuer. The issuer then signs with a key of your own. Nothing to call and
+  nothing to configure. Billing reconciliation reads your own numbers instead of
+  a fleet aggregate.
+
 ## [1.4.0]
 
 Lookups did not work on iOS. The published pod carries no credentials, by design,

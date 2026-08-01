@@ -97,6 +97,100 @@ final class SharedStoreTests: XCTestCase {
         XCTAssertEqual(loaded.tokenIssuerURL, iss)
     }
 
+    /// Writes a throwaway bundle whose Info.plist carries the given keys.
+    private func makeBundle(_ values: [String: String]) throws -> Bundle {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("lcid-\(UUID().uuidString).bundle")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try (values as NSDictionary).write(to: dir.appendingPathComponent("Info.plist"))
+        return try XCTUnwrap(Bundle(url: dir))
+    }
+
+    func testInfoPlistEndpointOverridesAreRead() throws {
+        let bundle = try makeBundle([
+            "CallerAPILCIDServiceURL": "https://pir-eset.callerapi.com",
+            "CallerAPILCIDTokenIssuerURL": "https://pat-eset.callerapi.com",
+        ])
+        let overrides = try XCTUnwrap(
+            CallerAPILiveCallerIDConfiguration.endpointOverrides(in: bundle)
+        )
+        XCTAssertEqual(overrides.serviceURL?.absoluteString, "https://pir-eset.callerapi.com")
+        XCTAssertEqual(overrides.tokenIssuerURL?.absoluteString, "https://pat-eset.callerapi.com")
+    }
+
+    func testInfoPlistWithoutKeysKeepsSharedDefaults() throws {
+        let bundle = try makeBundle(["CFBundleName": "irrelevant"])
+        XCTAssertNil(CallerAPILiveCallerIDConfiguration.endpointOverrides(in: bundle))
+    }
+
+    /// A copy-paste with a stray space or an http:// URL must not silently point
+    /// the extension somewhere Apple will reject.
+    func testInfoPlistRejectsBlankAndNonHTTPSValues() throws {
+        let bundle = try makeBundle([
+            "CallerAPILCIDServiceURL": "   ",
+            "CallerAPILCIDTokenIssuerURL": "http://pat-eset.callerapi.com",
+        ])
+        XCTAssertNil(CallerAPILiveCallerIDConfiguration.endpointOverrides(in: bundle))
+    }
+
+    func testInfoPlistTrimsSurroundingWhitespace() throws {
+        let bundle = try makeBundle([
+            "CallerAPILCIDServiceURL": "  https://pir-eset.callerapi.com\n",
+        ])
+        let overrides = try XCTUnwrap(
+            CallerAPILiveCallerIDConfiguration.endpointOverrides(in: bundle)
+        )
+        XCTAssertEqual(overrides.serviceURL?.absoluteString, "https://pir-eset.callerapi.com")
+        XCTAssertNil(overrides.tokenIssuerURL)
+    }
+
+    /// The App Group is the higher layer: a host that calls setEndpoints must win
+    /// over an Info.plist key, so staging can override a shipped configuration.
+    func testAppGroupOverrideBeatsInfoPlist() {
+        let svc = URL(string: "https://pir-staging.callerapi.com")!
+        SharedStore.setEndpoints(serviceURL: svc, tokenIssuerURL: nil, appGroup: suite)
+        XCTAssertEqual(SharedStore.load(appGroup: suite).serviceURL, svc)
+    }
+
+    /// A server-issued tier token must reach the App Group, because the extension
+    /// reads it from there and it is what makes issuance attributable.
+    func testAdoptTierTokenPersistsToTheAppGroup() {
+        CallerAPILiveCallerID.appGroupIdentifier = suite
+        CallerAPILiveCallerID.adoptTierToken("tier-token-for-this-client")
+
+        XCTAssertEqual(SharedStore.load(appGroup: suite).userTierToken,
+                       Data("tier-token-for-this-client".utf8))
+    }
+
+    /// Only a changed value reports true. Every write churns the App Group and
+    /// triggers an extension refresh, and the heartbeat sends the token every time.
+    func testAdoptTierTokenReportsWhetherItChanged() {
+        CallerAPILiveCallerID.appGroupIdentifier = suite
+
+        XCTAssertTrue(CallerAPILiveCallerID.adoptTierToken("stable-token"))
+        XCTAssertFalse(CallerAPILiveCallerID.adoptTierToken("stable-token"))
+        XCTAssertTrue(CallerAPILiveCallerID.adoptTierToken("rotated-token"))
+        XCTAssertEqual(SharedStore.load(appGroup: suite).userTierToken, Data("rotated-token".utf8))
+    }
+
+    /// Without an App Group there is nowhere to put the token, and the device keeps
+    /// the bundled default rather than crashing or losing call screening.
+    func testAdoptTierTokenWithoutAnAppGroupIsHarmless() {
+        CallerAPILiveCallerID.appGroupIdentifier = nil
+        XCTAssertFalse(CallerAPILiveCallerID.adoptTierToken("ignored"))
+
+        XCTAssertEqual(CallerAPILiveCallerID.effectiveConfiguration.userTierToken,
+                       CallerAPILiveCallerIDConfiguration.defaultUserTierToken)
+    }
+
+    func testAdoptTierTokenIgnoresAnEmptyToken() {
+        CallerAPILiveCallerID.appGroupIdentifier = suite
+        XCTAssertFalse(CallerAPILiveCallerID.adoptTierToken(""))
+
+        XCTAssertEqual(SharedStore.load(appGroup: suite).userTierToken,
+                       CallerAPILiveCallerIDConfiguration.defaultUserTierToken)
+    }
+
     func testResetClearsOverrides() {
         SharedStore.setUserTierToken(Data("t".utf8), appGroup: suite)
         SharedStore.setEndpoints(serviceURL: URL(string: "https://s.example.com")!,

@@ -46,6 +46,20 @@ public extension CallerAPILiveCallerID {
             appGroupIdentifier = appGroup
         }
 
+        // The extension reads its own Info.plist, not the host's. Copy any host
+        // override into the App Group so a customer on a dedicated host set only
+        // has to set the two keys once, on the app target.
+        if
+            let appGroup = appGroupIdentifier,
+            let overrides = CallerAPILiveCallerIDConfiguration.endpointOverrides()
+        {
+            SharedStore.setEndpoints(
+                serviceURL: overrides.serviceURL,
+                tokenIssuerURL: overrides.tokenIssuerURL,
+                appGroup: appGroup
+            )
+        }
+
         configureMetering(
             clientKey: options.lcidClientKey,
             extensionIdentifier: options.extensionIdentifier

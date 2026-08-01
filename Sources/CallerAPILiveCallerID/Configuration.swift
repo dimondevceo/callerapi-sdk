@@ -62,4 +62,49 @@ public struct CallerAPILiveCallerIDConfiguration: Sendable, Equatable {
         tokenIssuerURL: defaultTokenIssuerURL,
         userTierToken: defaultUserTierToken
     )
+
+    // MARK: - Info.plist keys
+
+    /// Info.plist key holding a service URL that replaces ``defaultServiceURL``.
+    public static let serviceURLInfoPlistKey = "CallerAPILCIDServiceURL"
+
+    /// Info.plist key holding a token issuer URL that replaces
+    /// ``defaultTokenIssuerURL``.
+    public static let tokenIssuerURLInfoPlistKey = "CallerAPILCIDTokenIssuerURL"
+
+    /// Reads endpoint overrides from a bundle's Info.plist.
+    ///
+    /// A customer whose Apple registration uses a dedicated host set needs its
+    /// own two URLs. Before 1.4.0 the only way to supply them was a Swift call
+    /// to `setEndpoints`, which Flutter and React Native never exposed, so those
+    /// customers needed a per-customer build of the SDK. Two Info.plist keys
+    /// replace that: the same build serves every customer.
+    ///
+    /// Returns nil when neither key is present, which keeps the shared hosts as
+    /// the default for everybody else.
+    ///
+    /// Read `Bundle.main` from the extension and you get the extension's own
+    /// Info.plist, because the extension is a separate process. Read it from the
+    /// host app and you get the host's. Setting the keys on either one works.
+    /// ``CallerAPILiveCallerID/bootstrap(_:)`` copies the host's values into the
+    /// App Group so the extension sees them without its own copy.
+    public static func endpointOverrides(
+        in bundle: Bundle = .main
+    ) -> (serviceURL: URL?, tokenIssuerURL: URL?)? {
+        func url(_ key: String) -> URL? {
+            guard
+                let raw = bundle.object(forInfoDictionaryKey: key) as? String,
+                !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                let url = URL(string: raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+                url.scheme?.lowercased() == "https"
+            else {
+                return nil
+            }
+            return url
+        }
+        let service = url(serviceURLInfoPlistKey)
+        let issuer = url(tokenIssuerURLInfoPlistKey)
+        guard service != nil || issuer != nil else { return nil }
+        return (service, issuer)
+    }
 }

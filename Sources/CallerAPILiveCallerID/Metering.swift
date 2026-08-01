@@ -269,6 +269,22 @@ public extension CallerAPILiveCallerID {
         // as quickly.
         s.attestRequested = json["attest_requested"] as? Bool ?? false
 
+        // The tier token identifies this customer to the Privacy Pass issuer, which
+        // is what lets the issuer hand back a signing key of its own and count
+        // issuance against it. The heartbeat is the only authenticated channel to
+        // the device, so this is the only way it can arrive.
+        //
+        // Store it, and only when it changed: writing on every heartbeat would
+        // churn the App Group and force a needless extension refresh.
+        if let tierToken = json["lcid_tier_token"] as? String,
+           adoptTierToken(tierToken),
+           let ext = s.extensionIdentifier {
+            // The system caches the extension context, so a changed token only takes
+            // effect after a refresh. Without this the first month of a new client's
+            // issuance would land in the shared bucket.
+            Task { try? await refreshPIRParameters(forExtensionWithIdentifier: ext) }
+        }
+
         let result = HeartbeatResult(
             latestVersion: json["latest_sdk_version"] as? String ?? sdkVersion,
             minSupportedVersion: json["min_supported_sdk_version"] as? String ?? sdkVersion,
