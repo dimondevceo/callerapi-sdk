@@ -23,7 +23,7 @@ Or in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dimondevceo/callerapi-sdk", from: "1.6.1"),
+    .package(url: "https://github.com/dimondevceo/callerapi-sdk", from: "1.6.2"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: [
@@ -36,8 +36,8 @@ targets: [
 ### CocoaPods
 
 ```ruby
-pod 'CallerAPI', '~> 1.6.1'
-pod 'CallerAPILiveCallerID', '~> 1.6.1'   # iOS 18+ Live Caller ID Lookup
+pod 'CallerAPI', '~> 1.6.2'
+pod 'CallerAPILiveCallerID', '~> 1.6.2'   # iOS 18+ Live Caller ID Lookup
 ```
 
 ### React Native and Flutter

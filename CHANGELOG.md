@@ -14,6 +14,45 @@ publishes all four platforms from a single `sdk-v<version>` tag.
 
 ## [Unreleased]
 
+## [1.6.2]
+
+The Android name card is what a customer sees on every labeled call. 1.6.1 still
+drew the old bar. Upgrade if you ship call screening.
+
+### Changed
+
+- **Android: the caller ID overlay is a card, not a bar across the screen.** It
+  was a full-width rectangle with square corners, drawn in a flat navy, with the
+  name against the left edge and no vertical centring. It also set
+  `FLAG_DIM_BEHIND`, which greyed out the call screen underneath it, including
+  the answer and reject buttons, so a caller's name read as a modal interruption
+  rather than an annotation on the call.
+
+  It is now inset from both edges, rounded, with a real shadow, the text block
+  centred against the logo, a clearer size relationship between name and number,
+  and no dimming. Nothing about the lookup changed.
+
+  This is the only place Android allows a name. Google reserves the call screen
+  itself for the dialer, so a screening app draws over it, and the overlay
+  either looks deliberate or it looks broken.
+
+- **Android: a host can replace the name card.** The SDK still has no theme API.
+  `setIncomingCallerIdOverlayEnabled(false)` only hides the SDK card. The
+  screening service still receives every call, so the host never sees the
+  number. To draw a custom card, remove `com.callerapi.sdk.CallerScreeningService`
+  with `tools:node="remove"`, write your own service, answer with
+  `cachedSpamVerdict`, and call `lookupLabel` after `respondToCall`. The steps
+  are in `INTEGRATION.md` and `docs/public/sdk/android-call-screening.md`.
+
+### Fixed
+
+- **Android: the old strip no longer stacks on the new card.** The screening
+  service launched `IncomingCallerIdActivity` and the overlay together. The
+  activity is the fallback for devices that never granted Display over other
+  apps. Launching both put the old full-width strip on top of the new card.
+  The service now draws the overlay when that permission is granted, and
+  launches the activity only when it is not.
+
 ## [1.6.1]
 
 1.6.0 fixed Live Caller ID for CocoaPods and left Swift Package Manager broken,
