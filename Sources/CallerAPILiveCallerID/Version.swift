@@ -10,5 +10,5 @@ public extension CallerAPILiveCallerID {
     /// `sdk_version` on the metering heartbeat — which is how a customer's build
     /// is identified in a support ticket, since the call-time lookup itself is
     /// run by iOS and is otherwise opaque to the host app.
-    static let sdkVersion = "1.6.0"
+    static let sdkVersion = "1.6.1"
 }

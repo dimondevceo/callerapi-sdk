@@ -56,6 +56,23 @@ let package = Package(
             // report tooling picks it up.
             resources: [
                 .copy("PrivacyInfo.xcprivacy"),
+            ],
+            // LiveCallerIDLookupManager reaches the system through the XPC
+            // service inside CallKit.framework/XPCServices, and an XPCService
+            // name resolves only against the frameworks loaded in the process.
+            // A host that links this library but never loads CallKit fails
+            // every call with `bootstrap look-up: xpc_error=[3: No such
+            // process]`, surfaced as Cocoa 4099, before a single request is
+            // sent. `import CallKit` alone autolinks only the Swift overlay,
+            // and weakly, so the framework is named here.
+            //
+            // This has to stay in step with ios-lcid/Package.swift. The two
+            // manifests are separate files: that one builds the standalone
+            // package, this one is the root of the public mirror, and it is
+            // the mirror customers resolve. Fixing only the standalone one
+            // ships the bug.
+            linkerSettings: [
+                .linkedFramework("CallKit", .when(platforms: [.iOS])),
             ]
         ),
         // The Foundation-only configuration and token-sharing logic. The

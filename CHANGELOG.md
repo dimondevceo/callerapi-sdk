@@ -14,6 +14,27 @@ publishes all four platforms from a single `sdk-v<version>` tag.
 
 ## [Unreleased]
 
+## [1.6.1]
+
+1.6.0 fixed Live Caller ID for CocoaPods and left Swift Package Manager broken,
+which is the install path the documentation recommends first. Upgrade straight
+past it.
+
+### Fixed
+
+- **The CallKit fix in 1.6.0 never reached Swift Package Manager.** The public
+  package resolves from a mirror repository, and the mirror has its own
+  `Package.swift`, because SwiftPM requires one at a repository root and the
+  Live Caller ID sources are not one. 1.6.0 added the framework to the
+  standalone manifest only, so the podspec carried the fix and the mirror did
+  not, and every SwiftPM customer still had every call fail with Cocoa 4099.
+
+  Nothing caught it. The mirror still built, because CallKit is only needed at
+  run time, and the release gates check versions and slices rather than what a
+  target links. `build-ios-mirror.sh` now refuses to publish a mirror that does
+  not link everything the standalone package links, which fails the release
+  instead of shipping it.
+
 ## [1.6.0]
 
 Live Caller ID Lookup did not work outside an app that already happened to link
