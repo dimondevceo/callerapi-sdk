@@ -14,7 +14,7 @@
 # would lint clean under --quick and then ship a pod with no sources in it.
 Pod::Spec.new do |s|
   s.name         = 'CallerAPILiveCallerID'
-  s.version      = '1.5.1'
+  s.version      = '1.6.0'
   s.summary      = 'iOS 18+ Live Caller ID Lookup integration for CallerAPI.'
   s.description  = <<~DESC
     Participates in Apple's Live Caller ID Lookup: the system privately queries
@@ -45,5 +45,5 @@ Pod::Spec.new do |s|
   # static library, and the failure mode is an undefined-symbol link error in the
   # customer's app rather than here — so it is declared explicitly.
   s.frameworks            = 'Foundation', 'UIKit', 'IdentityLookup', 'BackgroundTasks',
-                            'DeviceCheck', 'CryptoKit'
+                            'DeviceCheck', 'CryptoKit', 'CallKit'
 end

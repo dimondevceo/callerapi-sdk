@@ -5,19 +5,16 @@ struct ContentView: View {
     // Must match the extension target's bundle identifier (see project.yml).
     private let extensionID = "com.callerapi.demo.LiveLookupExtension"
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var statusText = "Checking…"
     @State private var isEnabled = false
     @State private var lastMessage = ""
+    @State private var busy = false
 
     private let config = CallerAPILiveCallerIDConfiguration.production
 
-    // There is no public deep-link to "Call Blocking & Identification".
-    // `openSettings()` routes through CallKit's settings helper
-    // (com.apple.CallKit.CallDirectory) and frequently fails with
-    // "Couldn't communicate with a helper application" - so we always show the
-    // manual path as the reliable fallback.
     private let manualSettingsPath =
-        "Open Settings ▸ Apps ▸ Phone ▸ Call Blocking & Identification and enable CallerAPI Live Lookup. (Toggle it off then on to flush cached results.)"
+        "Open Settings ▸ Apps ▸ Phone ▸ Call Blocking & Identification and enable CallerAPI Live Lookup."
 
     var body: some View {
         NavigationStack {
@@ -29,10 +26,11 @@ struct ContentView: View {
                     LabeledContent("Status") {
                         Text(statusText).foregroundStyle(isEnabled ? .green : .orange)
                     }
-                    Button("Refresh status", action: refreshStatus)
-                    Button("Open Settings to enable") {
+                    Button("Refresh status", action: peekStatus)
+                    Button("Open Settings") {
                         Task { await runOpenSettings() }
                     }
+                    .disabled(busy)
                 }
 
                 Section("CallerAPI backend") {
@@ -43,8 +41,13 @@ struct ContentView: View {
                         Text(config.tokenIssuerURL.absoluteString).font(.footnote).foregroundStyle(.secondary)
                     }
                     Button("Refresh PIR parameters") {
-                        Task { await runRefreshParams() }
+                        Task { await runReprovision(clearCache: false) }
                     }
+                    .disabled(busy)
+                    Button("Reset lookup cache + refresh") {
+                        Task { await runReprovision(clearCache: true) }
+                    }
+                    .disabled(busy)
                 }
 
                 if !lastMessage.isEmpty {
@@ -54,31 +57,40 @@ struct ContentView: View {
                 }
 
                 Section {
-                    Text("Enable the extension under Settings ▸ Apps ▸ Phone ▸ Call Blocking & Identification, then place/simulate a call. On a development build the system talks to the service URLs directly (Apple's relay is bypassed).")
+                    Text("This screen does not talk to CallDirectory on launch. Enable the extension in Settings, then tap Refresh PIR parameters. Use Reset only after a server package rebuild. Then place a call.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("CallerAPI LCID")
-            .onAppear(perform: refreshStatus)
-            .task(id: isEnabled) { await prewarmIfEnabled() }
+            .task { await pollStatus() }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active, !busy else { return }
+                peekStatus()
+            }
         }
     }
 
-    private func refreshStatus() {
+    private func peekStatus() {
         let disabled = CallerAPILiveCallerID.isDisabled(forExtensionWithIdentifier: extensionID)
         isEnabled = !disabled
-        statusText = disabled ? "Disabled - enable in Settings" : "Enabled"
+        statusText = disabled ? "Disabled. Enable in Settings." : "Enabled"
     }
 
-    /// Pre-warm PIR provisioning at app launch (and whenever the extension flips
-    /// to enabled) so the system fetches config + uploads eval keys BEFORE the
-    /// first incoming call. This is the only lever Apple gives the host app to
-    /// pull the one-time cold-start work forward off the first call's path; the
-    /// PIR daemon still owns the actual scheduling.
-    private func prewarmIfEnabled() async {
-        guard isEnabled else { return }
-        try? await CallerAPILiveCallerID.refreshPIRParameters(forExtensionWithIdentifier: extensionID)
+    /// Status is a query, not a spawn, so polling it is cheap. The system
+    /// answers Cocoa 4099 for a while after boot and after an install.
+    private func pollStatus() async {
+        for attempt in 1...30 {
+            let disabled = CallerAPILiveCallerID.isDisabled(forExtensionWithIdentifier: extensionID)
+            NSLog("[CallerAPI][DEMO] status poll %d: disabled=%@", attempt, disabled ? "true" : "false")
+            isEnabled = !disabled
+            statusText = disabled ? "Disabled. Enable in Settings." : "Enabled"
+            if !disabled {
+                await runReprovision(clearCache: false)
+                return
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
     }
 
     private func runOpenSettings() async {
@@ -86,19 +98,32 @@ struct ContentView: View {
             try await CallerAPILiveCallerID.openSettings()
             lastMessage = "Opened Settings."
         } catch {
-            // openSettings() goes through CallKit's flaky settings helper; on
-            // failure (the common case) fall back to the manual instructions
-            // rather than dumping the raw XPC error on the user.
             lastMessage = manualSettingsPath
         }
     }
 
-    private func runRefreshParams() async {
+    private func runReprovision(clearCache: Bool) async {
+        guard !busy else { return }
+        busy = true
+        defer { busy = false }
         do {
-            try await CallerAPILiveCallerID.refreshPIRParameters(forExtensionWithIdentifier: extensionID)
-            lastMessage = "Requested PIR parameter refresh."
+            try await CallerAPILiveCallerID.reprovision(
+                forExtensionWithIdentifier: extensionID,
+                clearCachedLookups: clearCache
+            )
+            peekStatus()
+            lastMessage = clearCache
+                ? "Cleared lookup cache and refreshed PIR parameters."
+                : "Refreshed PIR parameters."
         } catch {
-            lastMessage = "refreshPIRParameters failed: \(error.localizedDescription)"
+            peekStatus()
+            if CallerAPILiveCallerID.isCallDirectoryUnavailable(error) {
+                lastMessage = "CallDirectory is not up yet. Wait a few seconds, then tap Refresh PIR parameters."
+            } else if CallerAPILiveCallerID.isStaleExtensionConnection(error) {
+                lastMessage = "ExtensionKit dropped the connection. Tap Refresh PIR parameters again."
+            } else {
+                lastMessage = "Refresh failed: \(error.localizedDescription)"
+            }
         }
     }
 }

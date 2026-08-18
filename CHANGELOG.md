@@ -14,6 +14,84 @@ publishes all four platforms from a single `sdk-v<version>` tag.
 
 ## [Unreleased]
 
+## [1.6.0]
+
+Live Caller ID Lookup did not work outside an app that already happened to link
+CallKit. Everything below follows from finding that, on a device, against
+production.
+
+### Fixed
+
+- **iOS: Live Caller ID Lookup could not work at all in a host app that did not
+  already link CallKit.** `LiveCallerIDLookupManager` reaches the system through
+  an XPC service that lives inside
+  `CallKit.framework/XPCServices/com.apple.CallKit.CallDirectory.xpc`, and an
+  XPCService name resolves only against the main bundle and the frameworks
+  loaded in the process. A host that linked `CallerAPILiveCallerID`, and so
+  `IdentityLookup`, but never loaded CallKit failed every call before it began:
+
+  ```
+  activating connection: name=com.apple.CallKit.CallDirectory
+  failed to do a bootstrap look-up: xpc_error=[3: No such process]
+  invalidated after a failed init
+  ```
+
+  Everything downstream then had one symptom each and no common cause. The
+  extension read as disabled however the user set the Settings toggle,
+  `refreshPIRParameters` and `reset` threw Cocoa 4099, and no PIR or Privacy
+  Pass request ever left the device, so the backend saw no traffic and looked
+  healthy. An `import CallKit` alone autolinks only the Swift overlay, and
+  weakly, so the framework is now named in `Package.swift` and the podspec.
+
+  An app that happened to link CallKit for its own reasons was unaffected, which
+  is why this survived earlier testing.
+
+- **iOS: the SDK no longer launches the extension to find out whether it is
+  enabled.** Probing readiness that way spawns an `extensionkitservice` process
+  per attempt. A retry loop of them leaves `com.apple.CallKit.CallDirectory`
+  holding a dead handle, and the user then cannot turn the extension off or on:
+  Settings reports "an error occurred while disabling the extension" until the
+  device is rebooted. Reading the status is a plain query and is now the only
+  thing the readiness path does.
+
+- **iOS: a failed `reset` no longer aborts the refresh behind it.** The first
+  ExtensionKit call after an in-place app update fails with
+  `com.apple.extensionKit.errorDomain` error 2, and `reset` is usually first.
+  The refresh that follows it is the part the next call needs, so it now runs
+  either way.
+
+- **The server told a device its evaluation key was current when it was not.**
+  `/config` reported our own receive time in `KeyStatus.timestamp`. Apple
+  defines that field as the generation time of the device's secret key, and the
+  key identifier is `SHA256(EvaluationKeyConfig)`, which does not change when a
+  device rotates that secret. Our timestamp was always the later of the two, so
+  a key derived from a superseded secret read as current, the device skipped
+  `/key`, and its queries were evaluated under a key that could not decrypt
+  them. The server saw nothing wrong: the config hash resolved, the key was
+  found, and `/queries` answered 200 with a well formed reply. Only the device
+  saw it, as a CipherML decrypt failure and an empty caller name.
+
+### Added
+
+- **iOS: `reset`, `refreshExtensionContext` and `reprovision`** on the public
+  surface. `refreshPIRParameters` alone does not drop a cached lookup, so a
+  first lookup that returned empty stayed empty for the rest of
+  `cache_expiry_minutes`, which is 24 hours in production. `reprovision` runs
+  Apple's working order after a package publish: optional reset, extension
+  context, then PIR parameters.
+
+- **iOS: `waitUntilEnabled`**, which polls the status until it settles. A single
+  `isDisabled` read at launch is not evidence the user turned the extension off,
+  because CallDirectory answers Cocoa 4099 for the first few seconds of a
+  process. Host apps were treating that as "off" and hiding their own controls.
+
+- **iOS: `isCallDirectoryUnavailable` and `isStaleExtensionConnection`**, so an
+  integration can tell "the system is not ready yet, retry" apart from "the user
+  has this switched off" instead of showing one misleading message for both.
+
+- **Flutter `resetLiveLookup()` and React Native `resetLiveLookup()`**, plus an
+  optional `clearCachedLookups` on the Flutter prewarm.
+
 ## [1.5.1]
 
 Everything here comes from an external review of 1.5.0. Nothing in it changes what

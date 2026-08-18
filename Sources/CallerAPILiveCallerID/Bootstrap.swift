@@ -81,23 +81,28 @@ public extension CallerAPILiveCallerID {
 
     /// Refetch PIR config / PAT / eval keys when the extension is enabled.
     /// Returns `false` when disabled in Settings or prewarm failed.
+    ///
+    /// Set `clearCachedLookups` after a package publish. A prior empty
+    /// identity stays in the system cache until ``reset(forExtensionWithIdentifier:)``.
     @discardableResult
     static func prewarmIfEnabled(
         extensionIdentifier: String,
-        reason: String = "manual"
+        reason: String = "manual",
+        clearCachedLookups: Bool = false
     ) async -> Bool {
-        guard !isDisabled(forExtensionWithIdentifier: extensionIdentifier) else {
-            NSLog("[CallerAPI][LCID] prewarm(%@) skipped — extension disabled", reason)
+        // A cold `isDisabled` is not proof the user turned it off: CallDirectory
+        // answers Cocoa 4099 for a few seconds after launch. Wait for the query
+        // to settle before deciding, but never spawn the extension to find out.
+        guard await waitUntilEnabled(forExtensionWithIdentifier: extensionIdentifier) else {
+            NSLog("[CallerAPI][LCID] prewarm(%@) skipped — extension not enabled", reason)
             return false
         }
         let started = CFAbsoluteTimeGetCurrent()
         do {
-            if #available(iOS 18.1, *) {
-                try await manager.refreshExtensionContext(
-                    forExtensionWithIdentifier: extensionIdentifier
-                )
-            }
-            try await refreshPIRParameters(forExtensionWithIdentifier: extensionIdentifier)
+            try await reprovision(
+                forExtensionWithIdentifier: extensionIdentifier,
+                clearCachedLookups: clearCachedLookups
+            )
             let ms = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
             NSLog("[CallerAPI][LCID] prewarm(%@) ok in %dms", reason, ms)
             return true

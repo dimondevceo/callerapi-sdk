@@ -29,7 +29,19 @@ final class PublicSurfaceTests: XCTestCase {
             CallerAPILiveCallerID.appGroupIdentifier = "group.com.example.app"
             CallerAPILiveCallerID.setUserTierToken(Data())
             _ = CallerAPILiveCallerID.isDisabled(forExtensionWithIdentifier: "x")
+            _ = CallerAPILiveCallerID.isTransientExtensionError(
+                NSError(domain: "com.apple.extensionKit.errorDomain", code: 2)
+            )
             _ = CallerAPILiveCallerID.effectiveConfiguration
+            Task {
+                _ = await CallerAPILiveCallerID.waitUntilEnabled(forExtensionWithIdentifier: "x")
+                try await CallerAPILiveCallerID.reset(forExtensionWithIdentifier: "x")
+                try await CallerAPILiveCallerID.refreshExtensionContext(forExtensionWithIdentifier: "x")
+                try await CallerAPILiveCallerID.reprovision(
+                    forExtensionWithIdentifier: "x",
+                    clearCachedLookups: true
+                )
+            }
         }
         XCTAssertFalse(CallerAPILiveCallerID.sdkVersion.isEmpty)
     }

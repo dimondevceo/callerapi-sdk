@@ -7,6 +7,13 @@ import Foundation
 // on a Mac (see Tests/). The shipping product is iOS 18+ only.
 #if os(iOS)
 import IdentityLookup
+// `LiveCallerIDLookupManager` reaches the system through the XPC service in
+// `CallKit.framework/XPCServices/com.apple.CallKit.CallDirectory.xpc`. An
+// XPCService name only resolves against the main bundle and the frameworks
+// loaded in the process, so a host that links IdentityLookup alone fails every
+// call with `bootstrap look-up: xpc_error=[3: No such process]`, surfaced as
+// Cocoa 4099. Importing CallKit here autolinks it for every consumer.
+import CallKit
 #endif
 
 /// CallerAPI's Live Caller ID Lookup integration surface.
@@ -149,12 +156,63 @@ public enum CallerAPILiveCallerID {
     public static var manager: LiveCallerIDLookupManager { .shared }
 
     /// `true` when the user has **not** enabled the extension in Settings.
-    /// Prompt the user and call ``openSettings()`` when this returns `true`.
+    ///
+    /// This is a plain query. It does not launch the extension.
+    ///
+    /// For a few seconds after app launch, and while CallDirectory is
+    /// restarting, the system answers Cocoa 4099 and this reports `true` even
+    /// though the user already enabled the extension. Poll it, show the state,
+    /// and let the user act. Never launch the extension just to test the
+    /// toggle: each probe spawns an `extensionkitservice` process, and a loop
+    /// of them wedges the Settings toggle.
     ///
     /// - Parameter identifier: the extension's bundle identifier, e.g.
     ///   `"com.yourco.app.LiveLookup"`.
     public static func isDisabled(forExtensionWithIdentifier identifier: String) -> Bool {
         LiveCallerIDLookupManager.shared.status(forExtensionWithIdentifier: identifier) == .disabled
+    }
+
+    /// Polls ``isDisabled(forExtensionWithIdentifier:)`` until it reports
+    /// enabled or `timeout` passes. Query only; the extension is never spawned.
+    /// Returns `false` on timeout.
+    @discardableResult
+    public static func waitUntilEnabled(
+        forExtensionWithIdentifier identifier: String,
+        timeout: TimeInterval = 8
+    ) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !Task.isCancelled {
+            if !isDisabled(forExtensionWithIdentifier: identifier) { return true }
+            if Date() >= deadline { return false }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+        return !isDisabled(forExtensionWithIdentifier: identifier)
+    }
+
+    /// Cocoa 4099 / "Couldn't communicate with a helper application".
+    public static func isCallDirectoryUnavailable(_ error: Error) -> Bool {
+        let ns = error as NSError
+        if ns.domain == NSCocoaErrorDomain && ns.code == 4099 {
+            return true
+        }
+        let text = ns.localizedDescription.lowercased()
+        if text.contains("couldn't communicate with a helper") { return true }
+        if text.contains("couldn’t communicate with a helper") { return true }
+        if text.contains("calldirectory") && (text.contains("invalidated") || text.contains("check-in")) {
+            return true
+        }
+        return false
+    }
+
+    /// First ExtensionKit call after an in-place app update. The host still
+    /// points at the previous appex signature. Retry once; do not sit in a loop.
+    public static func isStaleExtensionConnection(_ error: Error) -> Bool {
+        let ns = error as NSError
+        return ns.domain == "com.apple.extensionKit.errorDomain" && ns.code == 2
+    }
+
+    public static func isTransientExtensionError(_ error: Error) -> Bool {
+        isCallDirectoryUnavailable(error) || isStaleExtensionConnection(error)
     }
 
     /// Opens Settings so the user can enable the Live Caller ID Lookup extension.
@@ -166,9 +224,72 @@ public enum CallerAPILiveCallerID {
     /// from the CallerAPI backend. Call after you change the user-tier token or
     /// learn (e.g. via push) that server-side parameters changed.
     ///
+    /// This does **not** drop a cached identity. A first lookup that returned
+    /// empty stays empty until ``reset(forExtensionWithIdentifier:)``.
+    ///
     /// - Parameter identifier: the extension's bundle identifier.
     public static func refreshPIRParameters(forExtensionWithIdentifier identifier: String) async throws {
         try await LiveCallerIDLookupManager.shared.refreshPIRParameters(forExtensionWithIdentifier: identifier)
+    }
+
+    /// Drops the system cache for this extension (tokens, eval keys, and
+    /// cached identity / block results).
+    ///
+    /// Call this after a PIR package publish, or when the Phone UI keeps an
+    /// empty name after the backend already answers. Then call
+    /// ``reprovision(forExtensionWithIdentifier:clearCachedLookups:)`` or
+    /// ``refreshPIRParameters(forExtensionWithIdentifier:)``.
+    public static func reset(forExtensionWithIdentifier identifier: String) async throws {
+        try await LiveCallerIDLookupManager.shared.reset(forExtensionWithIdentifier: identifier)
+    }
+
+    /// Forces the system to re-read ``makeExtensionContext()`` (URLs + tier
+    /// token). Available on iOS 18.1+. No-op on 18.0.
+    public static func refreshExtensionContext(forExtensionWithIdentifier identifier: String) async throws {
+        if #available(iOS 18.1, *) {
+            try await LiveCallerIDLookupManager.shared.refreshExtensionContext(forExtensionWithIdentifier: identifier)
+        }
+    }
+
+    /// Apple's working sequence after a server-side PIR change: optional
+    /// ``reset(forExtensionWithIdentifier:)``, then extension context, then
+    /// PIR parameters. Without reset, iOS can keep a cached empty identity
+    /// for the rest of `cache_expiry_minutes` (24 h in production).
+    ///
+    /// Each step spawns the extension, so this runs one pass with a single
+    /// retry on a transient error. Do not wrap it in a polling loop.
+    public static func reprovision(
+        forExtensionWithIdentifier identifier: String,
+        clearCachedLookups: Bool = false
+    ) async throws {
+        if clearCachedLookups {
+            do {
+                try await reset(forExtensionWithIdentifier: identifier)
+            } catch {
+                // Reset is the most fragile call: after an in-place install it
+                // throws ExtensionKit 2 while the host still points at the old
+                // appex. The refresh below is what the next call needs, so a
+                // failed reset must not abort the sequence.
+                NSLog("[CallerAPI][LCID] reset skipped: %@", error.localizedDescription)
+            }
+        }
+        try await retryOnceIfTransient {
+            try await refreshExtensionContext(forExtensionWithIdentifier: identifier)
+            try await refreshPIRParameters(forExtensionWithIdentifier: identifier)
+        }
+    }
+
+    private static func retryOnceIfTransient(
+        _ operation: () async throws -> Void
+    ) async throws {
+        do {
+            try await operation()
+        } catch {
+            NSLog("[CallerAPI][LCID] refresh failed: %@", error.localizedDescription)
+            guard isTransientExtensionError(error) else { throw error }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            try await operation()
+        }
     }
 #endif
 }

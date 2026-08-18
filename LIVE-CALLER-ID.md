@@ -193,7 +193,12 @@ import CallerAPILiveCallerID
 
 let extID = "com.yourco.app.LiveLookup"
 
-if CallerAPILiveCallerID.isDisabled(forExtensionWithIdentifier: extID) {
+// Do not trust one `isDisabled` read at launch. CallDirectory XPC
+// (Cocoa 4099) reports disabled for several seconds even when the
+// user already enabled the extension. `waitUntilEnabled` only queries
+// the status; it never launches the extension.
+let enabled = await CallerAPILiveCallerID.waitUntilEnabled(forExtensionWithIdentifier: extID)
+if !enabled {
     try await CallerAPILiveCallerID.openSettings()
 }
 ```
@@ -227,12 +232,17 @@ The system periodically refreshes parameters on its own. To force it (e.g. after
 a push telling you the dataset/config changed, or after changing the token):
 
 ```swift
-try await CallerAPILiveCallerID.refreshPIRParameters(forExtensionWithIdentifier: extID)
+try await CallerAPILiveCallerID.reprovision(
+    forExtensionWithIdentifier: extID,
+    clearCachedLookups: true
+)
 ```
 
-For lower-level controls (`reset(forExtensionWithIdentifier:)`,
-`refreshExtensionContext(forExtensionWithIdentifier:)`), use
-`CallerAPILiveCallerID.manager` (the shared `LiveCallerIDLookupManager`).
+`refreshPIRParameters` alone does not drop a cached identity. A first lookup
+that returned empty stays empty until `reset`. Use `clearCachedLookups: true`
+after a PIR package publish.
+
+For the raw system manager, use `CallerAPILiveCallerID.manager`.
 
 ---
 
@@ -308,10 +318,13 @@ Ship **all three** on iOS: host lookups (`ios/Sources/`), **Call Directory** (`i
 | `amfid … -413 "No matching profile found"` | LCID entitlement on wrong team/profile | Empty extension `.entitlements` for local dev (Step 2) |
 | Install fails: *"has missing or invalid CFBundleExecutable"* | Incomplete extension Info.plist | Add `CFBundleExecutable`, `CFBundlePackageType = XPC!` (Step 2) |
 | LCID toggle never appears in Settings | iOS < 18, extension not embedded, or bundle id not nested | iOS 18 device; embed extension; nest bundle id (Step 2) |
-| Build error `Missing package product 'CallerAPILiveCallerID'` | Stale SPM resolution | Re-resolve packages; clear DerivedData; or copy `ios-lcid/Sources/` directly into your target |
+| Build error `Missing package product 'CallerAPILiveCallerID'` | Stale SPM resolution | Re-resolve packages; clear DerivedData; or copy `ios-lcid/Sources/` directly into your target, and then link **CallKit** on that target yourself (see the row below) |
+| Every call fails with Cocoa 4099, and `bootstrap look-up: xpc_error=[3: No such process]` in Console | CallKit is not loaded in the host process | The package and podspec link it for you. Only a target built from copied sources has to add **CallKit.framework** by hand |
 | Dashboard SDK Analytics stays at **0** | No client key or heartbeat not wired | Provision key (Step 7); confirm `bootstrap` runs on launch |
 | Heartbeat `401 unknown_client` / `403 bundle_mismatch` | Wrong key or client bundle id ≠ app | Re-copy key; dashboard bundle id = host app exactly (Step 7) |
 | Requests go to `http://www.example.com/config` | Extension isn't providing context | `@main` + `LiveCallerIDLookupProtocol`; `com.apple.live-lookup` (Step 2) |
 | `failed to fetch token key` / `server error` | Relay can't reach issuer | Confirm relay enrollment; `tokenIssuerURL` = `https://pat.callerapi.com` |
-| Extension never fires on a call | Disabled in Settings, or not iOS 18 | `isDisabled` + `openSettings()`; real device + real call |
+| Extension never fires on a call | Disabled in Settings, or not iOS 18 | `waitUntilEnabled` + `openSettings()`; real device + real call |
+| Host shows Disabled but PIR still gets queries | Cold `status()` after Cocoa 4099 | Use `reprovision` / `waitUntilEnabled`. Do not gate Reset on one `isDisabled` |
+| `extensionKit.errorDomain error 2` after install | Stale appex connection on first call | Retry `refreshPIRParameters` once. Do not loop `reset()` on launch |
 | An extension "won't update" after a code change | iOS caches embedded extensions | Delete the app from the device and reinstall |
