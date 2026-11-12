@@ -23,17 +23,22 @@ public extension CallerAPILiveCallerID {
         /// App Group for per-user tier tokens (optional). When set, also assign
         /// ``CallerAPILiveCallerID/appGroupIdentifier`` before bootstrap.
         public let appGroupIdentifier: String?
+        /// Call Directory extension id. On iOS 18 a phone with only this extension
+        /// on is still reported. The device id stays the one Live Caller ID uses.
+        public let callDirectoryExtensionIdentifier: String?
 
         public init(
             extensionIdentifier: String,
             lcidClientKey: String,
             heartbeatTaskIdentifier: String? = nil,
-            appGroupIdentifier: String? = nil
+            appGroupIdentifier: String? = nil,
+            callDirectoryExtensionIdentifier: String? = nil
         ) {
             self.extensionIdentifier = extensionIdentifier
             self.lcidClientKey = lcidClientKey
             self.heartbeatTaskIdentifier = heartbeatTaskIdentifier
             self.appGroupIdentifier = appGroupIdentifier
+            self.callDirectoryExtensionIdentifier = callDirectoryExtensionIdentifier
         }
     }
 
@@ -62,20 +67,27 @@ public extension CallerAPILiveCallerID {
 
         configureMetering(
             clientKey: options.lcidClientKey,
-            extensionIdentifier: options.extensionIdentifier
+            extensionIdentifier: options.extensionIdentifier,
+            callDirectoryExtensionIdentifier: options.callDirectoryExtensionIdentifier
         )
         if let taskID = options.heartbeatTaskIdentifier {
             registerBackgroundHeartbeat(taskIdentifier: taskID)
         }
 
-        startAutomaticPrewarm(extensionIdentifier: options.extensionIdentifier)
-
-        Task {
-            _ = try? await sendHeartbeat()
-            _ = await prewarmIfEnabled(
-                extensionIdentifier: options.extensionIdentifier,
-                reason: "bootstrap"
-            )
+        if MeteringEntitlement.isEntitled() {
+            startAutomaticPrewarm(extensionIdentifier: options.extensionIdentifier)
+            Task {
+                _ = try? await sendHeartbeat()
+                _ = await prewarmIfEnabled(
+                    extensionIdentifier: options.extensionIdentifier,
+                    reason: "bootstrap"
+                )
+            }
+        } else {
+            Task {
+                _ = try? await sendHeartbeat(forceFeatureEnabled: false)
+                disableMetering()
+            }
         }
     }
 
@@ -123,6 +135,7 @@ public extension CallerAPILiveCallerID {
             object: nil,
             queue: .main
         ) { _ in
+            guard MeteringEntitlement.isEntitled() else { return }
             Task {
                 _ = await prewarmIfEnabled(
                     extensionIdentifier: extensionIdentifier,

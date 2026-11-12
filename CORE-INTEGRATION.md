@@ -11,7 +11,7 @@ This file covers the **host app lookup API**. Call Directory and LCID are **not 
 ```
 ios/
   CallerAPI.xcframework/
-  Sources/                    CallerAPI.swift, CallDirectory.swift, Bridge.h, BackgroundSync.swift
+  Sources/                    CallerAPI.swift, CallDirectory.swift, Entitlement.swift, DirectoryMetering.swift, Bridge.h, BackgroundSync.swift
   CallDirectoryExtension/     required Call Directory template
   ExtensionTemplates/LiveLookup/
   CALL-DIRECTORY-XCODE.md

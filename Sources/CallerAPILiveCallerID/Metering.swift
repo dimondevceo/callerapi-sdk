@@ -11,6 +11,7 @@
 #if os(iOS)
 import Foundation
 import UIKit
+import CallKit
 import BackgroundTasks
 
 /// Configuration is written on the main thread at launch but read from background
@@ -22,6 +23,7 @@ private final class MeteringStore: @unchecked Sendable {
     private let lock = NSLock()
     private var _clientKey: String?
     private var _extensionIdentifier: String?
+    private var _callDirectoryExtensionIdentifier: String?
     private var _endpoint = URL(string: "https://api.callerapi.com/api/lcid/heartbeat")!
     private var _enabled = true
     private var _registeredTaskIdentifiers = Set<String>()
@@ -40,6 +42,11 @@ private final class MeteringStore: @unchecked Sendable {
     var extensionIdentifier: String? {
         get { lock.withLock { _extensionIdentifier } }
         set { lock.withLock { _extensionIdentifier = newValue } }
+    }
+
+    var callDirectoryExtensionIdentifier: String? {
+        get { lock.withLock { _callDirectoryExtensionIdentifier } }
+        set { lock.withLock { _callDirectoryExtensionIdentifier = newValue } }
     }
 
     var endpoint: URL {
@@ -98,21 +105,15 @@ private final class MeteringStore: @unchecked Sendable {
 // Device facts read on the main actor (UIDevice is main-actor isolated).
 @available(iOS 18.0, *)
 private enum MeteringDevice {
-    private static let fallbackKey = "com.callerapi.lcid.deviceid"
-
     /// Stable device id: IDFV, with a fallback cached in UserDefaults for the rare
     /// window where IDFV is nil (before first unlock).
+    /// The fallback key lives on `DeviceIdentity` so an iOS 17 report and an
+    /// iOS 18 report name the same phone.
     @MainActor static var deviceID: String {
-        if let idfv = UIDevice.current.identifierForVendor?.uuidString {
-            return idfv
-        }
-        let d = UserDefaults.standard
-        if let cached = d.string(forKey: fallbackKey) {
-            return cached
-        }
-        let generated = UUID().uuidString
-        d.set(generated, forKey: fallbackKey)
-        return generated
+        DeviceIdentity.resolve(
+            vendorID: UIDevice.current.identifierForVendor?.uuidString,
+            defaults: .standard
+        )
     }
 
     @MainActor static var osVersion: String { UIDevice.current.systemVersion }
@@ -154,7 +155,8 @@ public extension CallerAPILiveCallerID {
     ///   - endpoint: override the heartbeat URL (staging only).
     static func configureMetering(clientKey: String,
                                   extensionIdentifier: String? = nil,
-                                  endpoint: URL? = nil) {
+                                  endpoint: URL? = nil,
+                                  callDirectoryExtensionIdentifier: String? = nil) {
         let trimmed = clientKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             // A silent no-op here is the classic "dashboard stays at zero and
@@ -171,8 +173,31 @@ public extension CallerAPILiveCallerID {
         let s = MeteringStore.shared
         s.clientKey = trimmed
         s.extensionIdentifier = extensionIdentifier
+        let callDirectory = callDirectoryExtensionIdentifier?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        s.callDirectoryExtensionIdentifier = (callDirectory?.isEmpty == false) ? callDirectory : nil
         if let endpoint { s.endpoint = endpoint }
-        s.enabled = true
+        s.enabled = MeteringEntitlement.isEntitled()
+    }
+
+    /// Apply a stored lapse or return. A lapse sends one report with the feature
+    /// off, then stops later reports. A return sends the real extension state.
+    public static func applyEntitlement(_ entitled: Bool) async {
+        let s = MeteringStore.shared
+        if entitled {
+            if s.clientKey != nil { s.enabled = true }
+            if let ext = s.extensionIdentifier, !ext.isEmpty {
+                startAutomaticPrewarm(extensionIdentifier: ext)
+            }
+            if s.enabled {
+                _ = try? await sendHeartbeat()
+            }
+            return
+        }
+        if s.clientKey != nil {
+            _ = try? await sendHeartbeat(forceFeatureEnabled: false)
+        }
+        disableMetering()
     }
 
     /// Opt the device out of metering entirely (no further heartbeats are sent).
@@ -182,29 +207,73 @@ public extension CallerAPILiveCallerID {
     /// refresh. Network failures throw to the caller but never affect call
     /// blocking. Returns the server's version policy.
     @discardableResult
-    static func sendHeartbeat() async throws -> HeartbeatResult {
+    static func sendHeartbeat(forceFeatureEnabled: Bool? = nil) async throws -> HeartbeatResult {
         let s = MeteringStore.shared
-        guard s.enabled, let clientKey = s.clientKey else { throw MeteringError.notConfigured }
+        let forceOff = forceFeatureEnabled == false
+        let entitled = MeteringEntitlement.isEntitled()
+        let extensionsOn: Bool
+        if s.clientKey != nil && s.enabled && entitled && !forceOff {
+            extensionsOn = await extensionsEnabled()
+        } else {
+            extensionsOn = false
+        }
+        let plan = HeartbeatPlan.next(
+            configured: s.clientKey != nil,
+            meteringEnabled: s.enabled,
+            entitled: entitled,
+            extensionsOn: extensionsOn,
+            forceOff: forceOff
+        )
+        guard case .send(let featureEnabled) = plan, let clientKey = s.clientKey else {
+            throw MeteringError.notConfigured
+        }
 
         do {
-            return try await postHeartbeat(clientKey: clientKey, attest: s.attestRequested)
+            return try await postHeartbeat(
+                clientKey: clientKey,
+                attest: s.attestRequested,
+                featureEnabled: featureEnabled
+            )
         } catch MeteringError.attestationRequired {
             // A client that requires attestation refuses the first heartbeat from a
             // device that has sent none. Retrying once with material metered this
             // device now, instead of leaving it uncounted until the next scheduled
             // refresh — which, on iOS, may be many hours away.
             s.attestRequested = true
-            return try await postHeartbeat(clientKey: clientKey, attest: true)
+            return try await postHeartbeat(clientKey: clientKey, attest: true, featureEnabled: featureEnabled)
         }
     }
 
-    private static func postHeartbeat(clientKey: String, attest: Bool) async throws -> HeartbeatResult {
+    /// Live Caller ID on, or Call Directory on. Either one makes the phone billable.
+    /// Both still produce one report, because the device id is the same.
+    private static func extensionsEnabled() async -> Bool {
         let s = MeteringStore.shared
-
-        var featureEnabled = false
-        if let ext = s.extensionIdentifier {
-            featureEnabled = !isDisabled(forExtensionWithIdentifier: ext)
+        var on = false
+        if let ext = s.extensionIdentifier, !ext.isEmpty {
+            on = !isDisabled(forExtensionWithIdentifier: ext)
         }
+        if !on, let callDirectory = s.callDirectoryExtensionIdentifier, !callDirectory.isEmpty {
+            on = await callDirectoryEnabled(callDirectory)
+        }
+        return on
+    }
+
+    private static func callDirectoryEnabled(_ identifier: String) async -> Bool {
+        await withCheckedContinuation { cont in
+            CXCallDirectoryManager.sharedInstance.getEnabledStatusForExtension(
+                withIdentifier: identifier
+            ) { status, _ in
+                cont.resume(returning: status == .enabled)
+            }
+        }
+    }
+
+    private static func postHeartbeat(
+        clientKey: String,
+        attest: Bool,
+        featureEnabled: Bool
+    ) async throws -> HeartbeatResult {
+        let s = MeteringStore.shared
 
         let deviceID = await MeteringDevice.deviceID
         let osVersion = await MeteringDevice.osVersion
@@ -396,7 +465,15 @@ public extension CallerAPILiveCallerID {
             // never) gets the app's background refresh budget revoked.
             let completed = CompletionLatch()
             let work = Task {
-                let ok = (try? await sendHeartbeat()) != nil
+                let ok: Bool
+                if HeartbeatPlan.allowsPeriodicHeartbeat(
+                    entitled: MeteringEntitlement.isEntitled(),
+                    meteringEnabled: MeteringStore.shared.enabled
+                ) {
+                    ok = (try? await sendHeartbeat()) != nil
+                } else {
+                    ok = true
+                }
                 if completed.claim() { task.setTaskCompleted(success: ok) }
             }
             task.expirationHandler = {

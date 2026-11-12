@@ -5,7 +5,10 @@
 # still CocoaPods-based and cannot consume a SwiftPM package. Both point at the
 # same git tag, so there is exactly one release artifact per version.
 #
-#   pod 'CallerAPILiveCallerID', '~> 1.2'
+#   pod 'CallerAPILiveCallerID', :git => 'https://github.com/dimondevceo/callerapi-sdk.git', :tag => '<version>'
+#
+# The CocoaPods trunk is read-only and stays at 1.6.2, so new versions resolve
+# from the git tag only.
 #
 # Every path below is relative to THIS directory, which is also the root of the
 # public github.com/dimondevceo/callerapi-sdk mirror that customers resolve from
@@ -14,7 +17,7 @@
 # would lint clean under --quick and then ship a pod with no sources in it.
 Pod::Spec.new do |s|
   s.name         = 'CallerAPILiveCallerID'
-  s.version      = '1.6.2'
+  s.version      = '1.7.0'
   s.summary      = 'iOS 18+ Live Caller ID Lookup integration for CallerAPI.'
   s.description  = <<~DESC
     Participates in Apple's Live Caller ID Lookup: the system privately queries

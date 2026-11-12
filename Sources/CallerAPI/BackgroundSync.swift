@@ -39,7 +39,9 @@ public extension CallerAPI {
 
         private static func handleTask(_ task: BGAppRefreshTask) {
             let work = Task {
-                _ = await CallerAPI.checkIn()
+                if CallerAPI.isEntitled() {
+                    _ = await CallerAPI.checkIn()
+                }
             }
 
             task.expirationHandler = { work.cancel() }

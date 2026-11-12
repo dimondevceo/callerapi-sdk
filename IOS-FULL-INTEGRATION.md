@@ -30,7 +30,7 @@ Full checklist: Step 0 of `IOS-INTEGRATION.md` in the `@callerapi/react-native` 
 ```
 ios/
   CallerAPI.xcframework/
-  Sources/                         CallerAPI.swift, CallDirectory.swift, Bridge.h, BackgroundSync.swift
+  Sources/                         CallerAPI.swift, CallDirectory.swift, Entitlement.swift, DirectoryMetering.swift, Bridge.h, BackgroundSync.swift
   CallDirectoryExtension/         template (handler, Bridge.h, entitlements)
   ExtensionTemplates/LiveLookup/   LCID extension template
   CALL-DIRECTORY-XCODE.md
@@ -66,7 +66,7 @@ Copy **`ios/CallDirectoryExtension/`** into your project. Create **Call Director
 
 Follow [`CALL-DIRECTORY-XCODE.md`](CALL-DIRECTORY-XCODE.md):
 
-- Link xcframework + `CallDirectory.swift` + `CallerAPI.swift` to extension
+- Link xcframework + `CallDirectory.swift` + `CallerAPI.swift` + `Entitlement.swift` to extension
 - `Bridge.h`, `CALLERAPI_BRIDGING_ONLY`, `-lz`
 - Embed in host **PlugIns**
 - Host + extension entitlements (App Group + Keychain)

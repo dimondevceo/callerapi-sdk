@@ -128,7 +128,7 @@ public final class CallerAPI: @unchecked Sendable {
     ///     Reported for billing, since only enabled devices are billable.
     public static func configure(_ config: CallerAPIConfig, featureEnabled: Bool = true) {
         shared.queue.sync { shared.initialiseLocked(with: config) }
-        setMetering(featureEnabled: featureEnabled)
+        setMetering(featureEnabled: featureEnabled && isEntitled())
     }
 
     /// Configure metering for MAU/billing: reports the stable per-vendor device
@@ -140,7 +140,42 @@ public final class CallerAPI: @unchecked Sendable {
     /// is required: with neither, init fails and every lookup reports "not spam".
     public static func configure(featureEnabled: Bool = true) {
         shared.queue.sync { shared.ensureInitialisedLocked() }
-        setMetering(featureEnabled: featureEnabled)
+        setMetering(featureEnabled: featureEnabled && isEntitled())
+    }
+
+    /// Whether the subscriber is entitled. Missing storage means yes.
+    public static func isEntitled() -> Bool {
+        StoredEntitlement.isEntitled()
+    }
+
+    /// Optional iOS 18 report. The Flutter and React Native plugins set this so a
+    /// lapse sends the Live Caller ID heartbeat before the Call Directory list is cleared.
+    public static var lcidEntitlementApply: (@Sendable (Bool) async -> Void)?
+
+    /// Store a lapse or a return, then update metering.
+    ///
+    /// `false` persists the flag, sends one report with the feature off, and
+    /// clears the Call Directory list. A later launch cannot turn billing back on.
+    /// `true` allows reports again. The report uses the real extension state.
+    public static func setEntitled(_ entitled: Bool) async {
+        #if os(iOS)
+        StoredEntitlement.write(entitled, appGroupID: CallDirectory.configuredAppGroup())
+        setMetering(featureEnabled: entitled)
+        // The Call Directory extension compiles this file without the host metering sources.
+        #if !CALLERAPI_BRIDGING_ONLY
+        if #available(iOS 13.0, *) {
+            await DirectoryMetering.applyEntitlement(entitled)
+        }
+        if let apply = lcidEntitlementApply {
+            await apply(entitled)
+        }
+        #endif
+        if !entitled {
+            await CallDirectory.clear()
+        }
+        #else
+        StoredEntitlement.write(entitled)
+        #endif
     }
 
     private static func setMetering(featureEnabled: Bool) {
@@ -183,7 +218,8 @@ public final class CallerAPI: @unchecked Sendable {
     /// Force a metering check-in now (otherwise runs via BackgroundSync).
     @discardableResult
     public static func checkIn() async -> Bool {
-        await withCheckedContinuation { cont in
+        if !isEntitled() { return false }
+        return await withCheckedContinuation { cont in
             shared.queue.async {
                 shared.ensureInitialisedLocked()
                 cont.resume(returning: callerapi_checkin() == 0)

@@ -26,6 +26,7 @@ final class PublicSurfaceTests: XCTestCase {
                 appGroupIdentifier: "group.com.example.app"
             ))
             CallerAPILiveCallerID.configureMetering(clientKey: "client-key")
+            Task { await CallerAPILiveCallerID.applyEntitlement(false) }
             CallerAPILiveCallerID.appGroupIdentifier = "group.com.example.app"
             CallerAPILiveCallerID.setUserTierToken(Data())
             _ = CallerAPILiveCallerID.isDisabled(forExtensionWithIdentifier: "x")

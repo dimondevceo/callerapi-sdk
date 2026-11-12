@@ -6,17 +6,19 @@
 # SwiftPM package. Both point at the same git tag, so there is exactly one
 # release artifact per version.
 #
-#   pod 'CallerAPI', '~> 1.3'
+# The CocoaPods trunk is read-only and stays at 1.6.2, so this spec is used from
+# the git tag:
 #
-# The React Native and Flutter wrappers declare this as a dependency rather than
-# vendoring their own copy of the xcframework, which is what keeps a `pub add` or
-# `npm install` from having to carry 6.7 MB of binary per ecosystem.
+#   pod 'CallerAPI', :git => 'https://github.com/dimondevceo/callerapi-sdk.git', :tag => '<version>'
+#
+# The React Native and Flutter wrappers do not depend on this pod. They carry
+# the same core (see sdk/scripts/vendor-ios-core.sh).
 #
 # Paths are relative to the root of the public github.com/dimondevceo/callerapi-sdk
 # mirror (see sdk/scripts/build-ios-mirror.sh), which is where this file lands.
 Pod::Spec.new do |s|
   s.name         = 'CallerAPI'
-  s.version      = '1.6.2'
+  s.version      = '1.7.0'
   s.summary      = 'Privacy-preserving spam detection and caller labels for iOS.'
   s.description  = <<~DESC
     Caller identification and spam detection with a k-anonymity lookup protocol:

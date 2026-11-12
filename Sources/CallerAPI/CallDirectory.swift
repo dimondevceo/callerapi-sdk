@@ -77,21 +77,40 @@ public extension CallerAPI {
             lock.lock(); _config = config; lock.unlock()
         }
 
+        static func configuredAppGroup() -> String? {
+            lock.lock(); defer { lock.unlock() }
+            return _config?.appGroup
+        }
+
         // MARK: - Host app
 
         /// Schedule blocklist download after a delay so it does not race LCID prewarm.
         public static func scheduleDeferredSync(after delay: TimeInterval) {
             guard delay > 0 else { return }
+            guard StoredEntitlement.allowsSync() else { return }
             Task.detached(priority: .utility) {
                 let ns = UInt64(delay * 1_000_000_000)
                 try? await Task.sleep(nanoseconds: ns)
+                guard StoredEntitlement.allowsSync() else { return }
                 try? await sync()
             }
         }
 
         /// Download the latest encrypted blocklist. Avoid calling on cold launch —
         /// use ``scheduleDeferredSync`` or ``CallerAPILiveCallerID/bootstrap(_:)``.
+        /// Delete the encrypted list and reload the extension.
+        /// The extension completes with an empty list when the file is gone.
+        public static func clear() async {
+            let c: Config
+            do { c = try currentConfig() } catch { return }
+            if let url = try? blobURL(c) {
+                HostBlocklistFile.remove(at: url)
+            }
+            try? await reloadExtension(c.extensionBundleID)
+        }
+
         public static func sync() async throws {
+            guard StoredEntitlement.allowsSync() else { return }
             _ = CallerAPI.shared            // ensure the C core is initialised
             let c = try currentConfig()
 

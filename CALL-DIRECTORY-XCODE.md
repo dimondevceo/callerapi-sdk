@@ -22,7 +22,7 @@ Automated wiring: `setup_callerapi_ios.sh` in the RN/Flutter package (recommende
 ## Manual Xcode checklist
 
 1. **Call Directory Extension** target — `com.yourco.app.CallDirectory`
-2. Copy template files; link **CallerAPI.xcframework** + **CallKit** + `CallDirectory.swift` + `CallerAPI.swift`
+2. Copy template files; link **CallerAPI.xcframework** + **CallKit** + `CallDirectory.swift` + `CallerAPI.swift` + `Entitlement.swift`
 3. Bridging header, `CALLERAPI_BRIDGING_ONLY`, `-lz`, Info.plist Preprocessor **YES**
 4. Host + extension **same** App Group + Keychain entitlements
 5. Embed in host **PlugIns** (not ExtensionKit)

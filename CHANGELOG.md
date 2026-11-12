@@ -14,6 +14,22 @@ publishes all four platforms from a single `sdk-v<version>` tag.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-12
+
+### Added
+
+- `setEntitled(bool)` on Android, iOS, Flutter, and React Native. Call it with false when a subscriber lapses. The flag is stored on the device. A later launch does not bill that device. The SDK sends one report with the feature off for the current month. Call it with true when the subscriber returns.
+
+### Changed
+
+- iOS 13 to 17 devices that use Call Directory now send the same usage report as iOS 18. The report uses the Call Directory switch. An upgrade to iOS 18 keeps the same device id.
+- **iOS: Swift Package Manager is recommended.** The CocoaPods trunk is
+  read-only, so `CallerAPI` and `CallerAPILiveCallerID` stay there at 1.6.2.
+  CocoaPods still works with `:git` and `:tag` against the mirror. The React
+  Native and Flutter packages now carry the iOS core and need no trunk pod.
+  Remove any `pod 'CallerAPI'` line from a React Native or Flutter Podfile, and
+  replace `import CallerAPI` in native host code with the wrapper module.
+
 ## [1.6.2]
 
 The Android name card is what a customer sees on every labeled call. 1.6.1 still

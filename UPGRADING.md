@@ -87,12 +87,27 @@ Lookup and needs iOS 18. They are additive — neither replaces the other.
 
 ## iOS — CocoaPods
 
+The CocoaPods trunk is frozen at 1.6.2. Swift Package Manager is recommended.
+CocoaPods still works when the pods point at the mirror tag:
+
 ```ruby
-pod 'CallerAPI', '~> 1.3'
-pod 'CallerAPILiveCallerID', '~> 1.3'   # iOS 18+ Live Caller ID Lookup
+pod 'CallerAPI', :git => 'https://github.com/dimondevceo/callerapi-sdk.git', :tag => '<version>'
+pod 'CallerAPILiveCallerID', :git => 'https://github.com/dimondevceo/callerapi-sdk.git', :tag => '<version>'   # iOS 18+ Live Caller ID Lookup
 ```
 
 Then `pod update CallerAPI CallerAPILiveCallerID`.
+
+React Native and Flutter apps add neither pod. From the first release after
+1.6.2, the wrapper carries the iOS core, so remove any `pod 'CallerAPI'` line from the Podfile.
+
+The core now compiles into the wrapper module, so there is no `CallerAPI` module
+in a React Native or Flutter app. In native host code, such as `AppDelegate.swift`,
+replace `import CallerAPI` with the wrapper module:
+
+```swift
+import CallerAPIReactNative   // React Native
+import callerapi              // Flutter
+```
 
 ## React Native
 

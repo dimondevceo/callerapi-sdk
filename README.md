@@ -23,7 +23,7 @@ Or in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dimondevceo/callerapi-sdk", from: "1.6.2"),
+    .package(url: "https://github.com/dimondevceo/callerapi-sdk", from: "1.7.0"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: [
@@ -35,14 +35,16 @@ targets: [
 
 ### CocoaPods
 
+The CocoaPods trunk is frozen at 1.6.2. Point the pods at this repository:
+
 ```ruby
-pod 'CallerAPI', '~> 1.6.2'
-pod 'CallerAPILiveCallerID', '~> 1.6.2'   # iOS 18+ Live Caller ID Lookup
+pod 'CallerAPI', :git => 'https://github.com/dimondevceo/callerapi-sdk.git', :tag => '1.7.0'
+pod 'CallerAPILiveCallerID', :git => 'https://github.com/dimondevceo/callerapi-sdk.git', :tag => '1.7.0'   # iOS 18+ Live Caller ID Lookup
 ```
 
 ### React Native and Flutter
 
-Don't add anything here — both wrappers depend on these pods already:
+Don't add anything here. Both wrappers carry the iOS core:
 
 ```sh
 npm install @callerapi/react-native     # React Native
