@@ -5,7 +5,7 @@ import CallKit
 import BackgroundTasks
 
 // sdk/scripts/check-sdk-versions.sh requires this assignment to match sdk/VERSION.
-private let directoryMeteringSDKVersion = "1.7.0"
+private let directoryMeteringSDKVersion = "1.7.1"
 
 /// Same decision as `HeartbeatPlan.next`. Keep the two copies identical.
 private enum DirectoryHeartbeatPlan {

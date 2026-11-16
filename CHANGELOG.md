@@ -14,6 +14,12 @@ publishes all four platforms from a single `sdk-v<version>` tag.
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-11-16
+
+### Fixed
+
+- **Android: `libcallerapi.so` is aligned to 16 KB.** Google Play rejects an app when a 64-bit native library does not support 16 KB memory pages. Version 1.7.0 and earlier were aligned to 4 KB on arm64-v8a and x86_64. Upgrade to 1.7.1 to pass that check. Flutter and React Native apps get the fix when they upgrade the plugin to 1.7.1. The app must also build with Android Gradle Plugin 8.5.1 or later, which packages the library with 16 KB alignment.
+
 ## [1.7.0] - 2026-11-12
 
 ### Added

@@ -17,7 +17,7 @@
 # would lint clean under --quick and then ship a pod with no sources in it.
 Pod::Spec.new do |s|
   s.name         = 'CallerAPILiveCallerID'
-  s.version      = '1.7.0'
+  s.version      = '1.7.1'
   s.summary      = 'iOS 18+ Live Caller ID Lookup integration for CallerAPI.'
   s.description  = <<~DESC
     Participates in Apple's Live Caller ID Lookup: the system privately queries
