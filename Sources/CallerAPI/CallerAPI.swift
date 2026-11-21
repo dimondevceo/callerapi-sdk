@@ -196,19 +196,21 @@ public final class CallerAPI: @unchecked Sendable {
     /// Privacy-preserving spam check (k-anon). May fetch a bucket on a cache
     /// miss, so it is asynchronous.
     public static func isSpam(_ phone: String) async throws -> Bool {
-        try await shared.run {
+        let number = PhoneNumber.e164(phone) ?? phone
+        return try await shared.run {
             shared.ensureInitialisedLocked()
-            return callerapi_is_spam(phone) == 1
+            return callerapi_is_spam(number) == 1
         }
     }
 
     /// Privacy-preserving business-label lookup (k-anon). Returns the caller's
     /// business name, or nil if the number is not a known business.
     public static func lookupLabel(_ phone: String) async throws -> String? {
-        try await shared.runThrowing { () -> String? in
+        let number = PhoneNumber.e164(phone) ?? phone
+        return try await shared.runThrowing { () -> String? in
             shared.ensureInitialisedLocked()
             var buf = [CChar](repeating: 0, count: 256)
-            let rc = callerapi_lookup_label(phone, &buf, Int32(buf.count))
+            let rc = callerapi_lookup_label(number, &buf, Int32(buf.count))
             if rc == 0 { return String(cString: buf) }
             if rc == -8 /* NOTFOUND */ { return nil }
             throw CallerAPIError(code: rc)
@@ -342,4 +344,56 @@ private func cacheDirectory() -> String {
     let dir = caches.appendingPathComponent("CallerAPI")
     try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
     return dir.path
+}
+
+// Kept in this file: Call Directory extension targets compile CallerAPI.swift from a fixed file list.
+/// Turns a phone number into the E.164 string the lookup hashes.
+///
+/// The server keys each bucket by "+" and the digits. A number in national format, or with
+/// an international prefix, hashes to another bucket, and the lookup misses without an
+/// error. iOS has no public numbering-plan API, so this maps only what the format makes
+/// certain: "+", "00", and North American numbers on a device in North America. Any other
+/// number goes to the core as it is, and the core refuses it rather than hashing it.
+enum PhoneNumber {
+
+    /// Regions of the North American Numbering Plan: 10-digit national numbers, 011 to dial out.
+    private static let nanp: Set<String> = [
+        "US", "CA", "AG", "AI", "AS", "BB", "BM", "BS", "DM", "DO", "GD", "GU", "JM",
+        "KN", "KY", "LC", "MP", "MS", "PR", "SX", "TC", "TT", "VC", "VG", "VI",
+    ]
+
+    private static let separators = Set(" \t().-/\u{00A0}")
+
+    static func e164(_ raw: String, region: String? = PhoneNumber.deviceRegion) -> String? {
+        let compact = raw.filter { !separators.contains($0) }
+        let international = compact.hasPrefix("+")
+        let digits = international ? String(compact.dropFirst()) : compact
+        guard !digits.isEmpty, digits.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        let country = region?.uppercased()
+
+        let number: String
+        if international {
+            number = digits
+        } else if digits.hasPrefix("00") {
+            number = String(digits.dropFirst(2))
+        } else if let country = country, nanp.contains(country) {
+            if digits.hasPrefix("011") {
+                number = String(digits.dropFirst(3))
+            } else if digits.count == 10 {
+                number = "1" + digits
+            } else if digits.count == 11, digits.hasPrefix("1") {
+                number = digits
+            } else {
+                return nil
+            }
+        } else {
+            return nil
+        }
+        guard (7...15).contains(number.count), number.first != "0" else { return nil }
+        return "+" + number
+    }
+
+    static var deviceRegion: String? {
+        (Locale.current as NSLocale).object(forKey: .countryCode) as? String
+    }
 }

@@ -12,6 +12,35 @@ Downloading a package does not grant a licence to use it: the SDK authenticates
 to the CallerAPI service with the credentials issued under your subscription. See
 `LICENSE`.
 
+## Upgrading to 1.8.0 from 1.7.x: Android blocks the first spam call
+
+Source-compatible. Change the version number and rebuild. Nothing else is required.
+
+What changes on Android:
+
+1. **The first call from a known spam number is rejected.** Before 1.8.0 the SDK
+   answered from memory only, so the first call after an install, a force stop, a
+   reboot, or an app update rang. The SDK now looks the number up before the phone
+   rings. The lookup ends after 3 seconds. Without an answer in time, the call rings.
+2. **Saved contacts ring.** If your app holds `READ_CONTACTS`, the SDK checks the
+   contacts first and lets a saved number ring. Without that permission, Android
+   does not show contacts' calls to the screening app at all.
+3. **Logcat shows each decision.** Filter on the tag `CallerAPI-Screen`.
+4. **Numbers in any format are read correctly.** `(888) 357-8668`, `0795135210` and
+   `0041795135210` now reach the right lookup. Before 1.8.0 they missed without an
+   error. You do not need to convert numbers yourself.
+5. **A caller ID that cannot exist is rejected.** The SDK downloads the
+   numbering-range table and keeps it on disk. A number in an unallocated range, or
+   with an impossible length for its country, is rejected with no lookup. Logcat
+   shows `verdict=INVALID` with the reason. `isSpam` gives `true` for such a number.
+
+On iOS, `isSpam` and `lookupLabel` now read `+`, `00`, and North American numbers. A
+number without its country code outside North America gives `CallerAPIError` code `-5`
+from `lookupLabel`, where it used to give `nil`. It always missed.
+
+If you replaced the SDK screening service with your own, your service still answers
+from `cachedSpamVerdict`. Its first call from a number still rings.
+
 ## Upgrading to 1.4.0 from 1.3.x: iOS needs your credentials
 
 Android reads its credentials from manifest `meta-data`, and always has. iOS had no

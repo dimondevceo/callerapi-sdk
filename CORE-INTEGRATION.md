@@ -56,7 +56,8 @@ let isSpam = try await CallerAPI.isSpam("+14155551234")
 let label  = try await CallerAPI.lookupLabel("+14155551234")
 ```
 
-Pass E.164 (`+` country code).
+Pass the number with `+` and the country code. `00` and North American formats also
+work. A national number outside North America needs its country code.
 
 ## Step 5 — Call Directory (required)
 

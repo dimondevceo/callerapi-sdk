@@ -14,6 +14,22 @@ publishes all four platforms from a single `sdk-v<version>` tag.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-20
+
+### Changed
+
+- **Android: the first call from a known spam number is rejected before it rings.** Up to 1.7.1 the screening service answered from memory only. The first call after an install, a force stop, a reboot, or an app update always rang. The service now looks up a number that it has not checked in the last 2 minutes, before the phone rings. The lookup sends only the bucket index, the same as before. It never sends the number. Nothing is written to disk.
+- **Android: the lookup has a time limit.** It ends 3 seconds after the call arrives. A process that Android starts for the call answers within 4.5 seconds of its start. Telecom gives a screening app 5 seconds. Without an answer in time, a verdict up to 24 hours old in memory decides, or the call rings.
+- **Android: saved contacts ring.** Android does not show a saved contact's call to a screening app that does not hold `READ_CONTACTS`. When your app holds that permission, the SDK now checks the contacts itself and lets the call ring. The SDK asks for no new permission.
+- **Phone numbers in any format reach the right lookup.** The server keys each bucket by `+` and the digits, so a number in another format missed without an error. Up to 1.7.1, Android only put `+` in front: `8883578668` became `+8883578668`, and `0795135210` became `+0795135210`. iOS sent the number as it was. Android now reads national formats, separators, and international prefixes such as `00` and `011` in the phone's own country: the network, then the SIM, then the locale. iOS reads `+`, `00`, and North American numbers on a phone in North America. The C core now ignores separators and refuses a number without `+` with `CALLERAPI_ERR_PARSE` (-5), where it used to hash it and miss.
+- **Android: a caller ID that cannot exist is rejected with no lookup.** The SDK downloads the numbering-range table that the lookup API uses: the valid number lengths of every calling code, and the allocation status of North American ranges from the NANPA and CNAC files. A number in an unallocated range, such as `+17460081173`, or with an impossible length for its country, is rejected before any lookup, also the first time it calls. The table is public numbering data, so the SDK keeps it on disk and downloads it again only when it changes. `isSpam`, `spamCheckCode`, and `cachedSpamVerdict` give spam for such a number too. A saved contact still rings. iOS cannot do this: Apple's Live Caller ID Lookup matches exact numbers only.
+- **Android: one log line per screened call.** Tag `CallerAPI-Screen` shows the verdict, its source, the action, and the time, for example `verdict=SPAM source=live action=reject ms=640 number=***2730`. A number that cannot exist shows `verdict=INVALID reason=unallocated`. A failed lookup shows its error code. The result of `prewarmAsync` is logged too.
+- Flutter and React Native apps get the Android changes when they upgrade the plugin to 1.8.0. On iOS, only the reading of number formats changes.
+
+### Added
+
+- C core: `callerapi_is_spam_live()`, the time-limited spam check that the Android screening service uses, and the error code `CALLERAPI_ERR_TIMEOUT` (-11).
+
 ## [1.7.1] - 2026-11-16
 
 ### Fixed

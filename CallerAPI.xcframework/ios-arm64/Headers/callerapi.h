@@ -33,6 +33,14 @@ extern "C" {
    every lookup returns "unknown", nothing is ever blocked, and the integration
    looks like it works. Supply sdk_key and sdk_secret from the dashboard. */
 #define CALLERAPI_ERR_NOCREDS  -10
+/* The budget given to callerapi_is_spam_live() ran out, in the wait for the SDK
+   lock or on the network. The answer is unknown. */
+#define CALLERAPI_ERR_TIMEOUT  -11
+
+/* Where callerapi_is_spam_live() found its answer. */
+#define CALLERAPI_SOURCE_MEMORY 1   /* a bucket fetched in the last 2 minutes */
+#define CALLERAPI_SOURCE_LIVE   2   /* fetched from the server for this call  */
+#define CALLERAPI_SOURCE_STALE  3   /* a cached bucket up to 24 hours old     */
 
 /*
  * Runtime configuration (see callerapi_init_ex).
@@ -95,7 +103,10 @@ CALLERAPI_EXPORT int callerapi_init(const char *cache_dir);
  * full-hash suffix locally - the server never learns which number was queried.
  * Buckets are cached in memory, so repeat checks are local and instant.
  *
- * phone must be E.164 format (e.g. "+16612351234").
+ * phone is '+', the country code and the number, e.g. "+16612351234". Spaces,
+ * '-', '.', '(' and ')' are ignored. Anything else, a number without '+' too,
+ * returns CALLERAPI_ERR_PARSE: the lookup cannot know its country, and a hash
+ * of the wrong string misses without an error.
  * Returns 1 (spam), 0 (not spam), or a negative error code.
  * Transparently authenticates if no valid session exists.
  */
@@ -117,6 +128,29 @@ CALLERAPI_EXPORT int callerapi_is_spam(const char *phone);
 CALLERAPI_EXPORT int callerapi_is_spam_cached(const char *phone);
 
 /*
+ * Spam check for the incoming-call path that may use the network, with a hard
+ * time limit.
+ *
+ * budget_ms bounds the whole call: the wait for the SDK lock, authentication,
+ * the namespace config and the bucket fetch. The device sends only the bucket
+ * index, the same as callerapi_is_spam(). While a call waits for the lock, the
+ * other entry points that use the network wait for it to go first.
+ *
+ * A bucket fetched in the last 2 minutes answers at once. Otherwise the bucket
+ * comes from the server. With budget_ms <= 0 the function never waits and never
+ * uses the network. It then also accepts a bucket up to 24 hours old, and returns
+ * CALLERAPI_ERR_NOTFOUND or CALLERAPI_ERR_BUSY when it has no answer.
+ *
+ * source may be NULL. With an answer it gets a CALLERAPI_SOURCE_* value.
+ *
+ * Returns 1 (spam), 0 (not spam), CALLERAPI_ERR_TIMEOUT when the budget ran out,
+ * or another negative error. Treat every negative result as "unknown" and let
+ * the call through.
+ */
+CALLERAPI_EXPORT int callerapi_is_spam_live(const char *phone, int budget_ms,
+                                            int *source);
+
+/*
  * Warm the session and namespace config, and populate the bucket cache for
  * `phone` when it is non-NULL. Performs network I/O, so call it off the
  * call path (init, background refresh, or right after a cache miss).
@@ -129,7 +163,7 @@ CALLERAPI_EXPORT int callerapi_prewarm(const char *phone);
  * callerapi_is_spam, over the identity namespace). On a hit, writes the
  * caller's business name into `out` (NUL-terminated, truncated to out_len).
  *
- * phone must be E.164 format.
+ * phone is read as for callerapi_is_spam.
  * Returns CALLERAPI_OK on a match, CALLERAPI_ERR_NOTFOUND if the number is not a
  * known business, or another negative error code.
  */
